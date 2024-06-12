@@ -3,7 +3,7 @@
 
 @file:Suppress("NAME_SHADOWING")
 
-package uniffi.trustdidweb;
+package uniffi.didtoolbox;
 
 // Common helper code.
 //
@@ -47,7 +47,7 @@ open class RustBuffer : Structure() {
 
     companion object {
         internal fun alloc(size: Int = 0) = uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.ffi_trustdidweb_rustbuffer_alloc(size, status)
+            UniffiLib.INSTANCE.ffi_didtoolbox_rustbuffer_alloc(size, status)
         }.also {
             if(it.data == null) {
                throw RuntimeException("RustBuffer.alloc() returned null data pointer (size=${size})")
@@ -63,7 +63,7 @@ open class RustBuffer : Structure() {
         }
 
         internal fun free(buf: RustBuffer.ByValue) = uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.ffi_trustdidweb_rustbuffer_free(buf, status)
+            UniffiLib.INSTANCE.ffi_didtoolbox_rustbuffer_free(buf, status)
         }
     }
 
@@ -375,7 +375,7 @@ private inline fun <reified Lib : Library> loadIndirect(
 internal interface UniffiLib : Library {
     companion object {
         internal val INSTANCE: UniffiLib by lazy {
-            loadIndirect<UniffiLib>(componentName = "trustdidweb")
+            loadIndirect<UniffiLib>(componentName = "didtoolbox")
             .also { lib: UniffiLib ->
                 uniffiCheckContractApiVersion(lib)
                 uniffiCheckApiChecksums(lib)
@@ -388,171 +388,171 @@ internal interface UniffiLib : Library {
         }
     }
 
-    fun uniffi_trustdidweb_fn_clone_diddocumentstate(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_clone_diddocumentstate(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
-    fun uniffi_trustdidweb_fn_free_diddocumentstate(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_free_diddocumentstate(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_trustdidweb_fn_constructor_diddocumentstate_from(`didLog`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_constructor_diddocumentstate_from(`didLog`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
-    fun uniffi_trustdidweb_fn_method_diddocumentstate_validate(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_diddocumentstate_validate(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_trustdidweb_fn_clone_ed25519keypair(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_clone_ed25519keypair(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
-    fun uniffi_trustdidweb_fn_free_ed25519keypair(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_free_ed25519keypair(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_trustdidweb_fn_constructor_ed25519keypair_from(`signingKeyMultibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_constructor_ed25519keypair_from(`signingKeyMultibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
-    fun uniffi_trustdidweb_fn_constructor_ed25519keypair_generate(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_constructor_ed25519keypair_generate(uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
-    fun uniffi_trustdidweb_fn_clone_trustdidwebprocessor(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_clone_trustdidwebprocessor(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
-    fun uniffi_trustdidweb_fn_free_trustdidwebprocessor(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_free_trustdidwebprocessor(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_trustdidweb_fn_constructor_trustdidwebprocessor_new(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_constructor_trustdidwebprocessor_new(uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
-    fun uniffi_trustdidweb_fn_constructor_trustdidwebprocessor_new_with_api_key(`apiKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_constructor_trustdidwebprocessor_new_with_api_key(`apiKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
-    fun uniffi_trustdidweb_fn_method_trustdidwebprocessor_create(`ptr`: Pointer,`url`: RustBuffer.ByValue,`keyPair`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_trustdidwebprocessor_create(`ptr`: Pointer,`url`: RustBuffer.ByValue,`keyPair`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_trustdidweb_fn_method_trustdidwebprocessor_deactivate(`ptr`: Pointer,`didTdw`: RustBuffer.ByValue,`keyPair`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_trustdidwebprocessor_deactivate(`ptr`: Pointer,`didTdw`: RustBuffer.ByValue,`keyPair`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_trustdidweb_fn_method_trustdidwebprocessor_read(`ptr`: Pointer,`didTdw`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_trustdidwebprocessor_read(`ptr`: Pointer,`didTdw`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_trustdidweb_fn_method_trustdidwebprocessor_update(`ptr`: Pointer,`didTdw`: RustBuffer.ByValue,`didDoc`: RustBuffer.ByValue,`keyPair`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_trustdidwebprocessor_update(`ptr`: Pointer,`didTdw`: RustBuffer.ByValue,`didDoc`: RustBuffer.ByValue,`keyPair`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun ffi_trustdidweb_rustbuffer_alloc(`size`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rustbuffer_alloc(`size`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun ffi_trustdidweb_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun ffi_trustdidweb_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun ffi_trustdidweb_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun ffi_trustdidweb_rust_future_poll_u8(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
+    fun ffi_didtoolbox_rust_future_poll_u8(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
     ): Unit
-    fun ffi_trustdidweb_rust_future_cancel_u8(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_cancel_u8(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_free_u8(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_free_u8(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_complete_u8(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_u8(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Byte
-    fun ffi_trustdidweb_rust_future_poll_i8(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
+    fun ffi_didtoolbox_rust_future_poll_i8(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
     ): Unit
-    fun ffi_trustdidweb_rust_future_cancel_i8(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_cancel_i8(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_free_i8(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_free_i8(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_complete_i8(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_i8(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Byte
-    fun ffi_trustdidweb_rust_future_poll_u16(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
+    fun ffi_didtoolbox_rust_future_poll_u16(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
     ): Unit
-    fun ffi_trustdidweb_rust_future_cancel_u16(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_cancel_u16(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_free_u16(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_free_u16(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_complete_u16(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_u16(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Short
-    fun ffi_trustdidweb_rust_future_poll_i16(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
+    fun ffi_didtoolbox_rust_future_poll_i16(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
     ): Unit
-    fun ffi_trustdidweb_rust_future_cancel_i16(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_cancel_i16(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_free_i16(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_free_i16(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_complete_i16(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_i16(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Short
-    fun ffi_trustdidweb_rust_future_poll_u32(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
+    fun ffi_didtoolbox_rust_future_poll_u32(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
     ): Unit
-    fun ffi_trustdidweb_rust_future_cancel_u32(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_cancel_u32(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_free_u32(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_free_u32(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_complete_u32(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_u32(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Int
-    fun ffi_trustdidweb_rust_future_poll_i32(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
+    fun ffi_didtoolbox_rust_future_poll_i32(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
     ): Unit
-    fun ffi_trustdidweb_rust_future_cancel_i32(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_cancel_i32(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_free_i32(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_free_i32(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_complete_i32(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_i32(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Int
-    fun ffi_trustdidweb_rust_future_poll_u64(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
+    fun ffi_didtoolbox_rust_future_poll_u64(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
     ): Unit
-    fun ffi_trustdidweb_rust_future_cancel_u64(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_cancel_u64(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_free_u64(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_free_u64(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_complete_u64(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_u64(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
-    fun ffi_trustdidweb_rust_future_poll_i64(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
+    fun ffi_didtoolbox_rust_future_poll_i64(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
     ): Unit
-    fun ffi_trustdidweb_rust_future_cancel_i64(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_cancel_i64(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_free_i64(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_free_i64(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_complete_i64(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_i64(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
-    fun ffi_trustdidweb_rust_future_poll_f32(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
+    fun ffi_didtoolbox_rust_future_poll_f32(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
     ): Unit
-    fun ffi_trustdidweb_rust_future_cancel_f32(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_cancel_f32(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_free_f32(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_free_f32(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_complete_f32(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_f32(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Float
-    fun ffi_trustdidweb_rust_future_poll_f64(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
+    fun ffi_didtoolbox_rust_future_poll_f64(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
     ): Unit
-    fun ffi_trustdidweb_rust_future_cancel_f64(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_cancel_f64(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_free_f64(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_free_f64(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_complete_f64(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_f64(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Double
-    fun ffi_trustdidweb_rust_future_poll_pointer(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
+    fun ffi_didtoolbox_rust_future_poll_pointer(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
     ): Unit
-    fun ffi_trustdidweb_rust_future_cancel_pointer(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_cancel_pointer(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_free_pointer(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_free_pointer(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_complete_pointer(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_pointer(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
-    fun ffi_trustdidweb_rust_future_poll_rust_buffer(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
+    fun ffi_didtoolbox_rust_future_poll_rust_buffer(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
     ): Unit
-    fun ffi_trustdidweb_rust_future_cancel_rust_buffer(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_cancel_rust_buffer(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_free_rust_buffer(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_free_rust_buffer(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_complete_rust_buffer(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_rust_buffer(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun ffi_trustdidweb_rust_future_poll_void(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
+    fun ffi_didtoolbox_rust_future_poll_void(`handle`: Pointer,`callback`: UniFffiRustFutureContinuationCallbackType,`callbackData`: USize,
     ): Unit
-    fun ffi_trustdidweb_rust_future_cancel_void(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_cancel_void(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_free_void(`handle`: Pointer,
+    fun ffi_didtoolbox_rust_future_free_void(`handle`: Pointer,
     ): Unit
-    fun ffi_trustdidweb_rust_future_complete_void(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_void(`handle`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_trustdidweb_checksum_method_diddocumentstate_validate(
+    fun uniffi_didtoolbox_checksum_method_diddocumentstate_validate(
     ): Short
-    fun uniffi_trustdidweb_checksum_method_trustdidwebprocessor_create(
+    fun uniffi_didtoolbox_checksum_method_trustdidwebprocessor_create(
     ): Short
-    fun uniffi_trustdidweb_checksum_method_trustdidwebprocessor_deactivate(
+    fun uniffi_didtoolbox_checksum_method_trustdidwebprocessor_deactivate(
     ): Short
-    fun uniffi_trustdidweb_checksum_method_trustdidwebprocessor_read(
+    fun uniffi_didtoolbox_checksum_method_trustdidwebprocessor_read(
     ): Short
-    fun uniffi_trustdidweb_checksum_method_trustdidwebprocessor_update(
+    fun uniffi_didtoolbox_checksum_method_trustdidwebprocessor_update(
     ): Short
-    fun uniffi_trustdidweb_checksum_constructor_diddocumentstate_from(
+    fun uniffi_didtoolbox_checksum_constructor_diddocumentstate_from(
     ): Short
-    fun uniffi_trustdidweb_checksum_constructor_ed25519keypair_from(
+    fun uniffi_didtoolbox_checksum_constructor_ed25519keypair_from(
     ): Short
-    fun uniffi_trustdidweb_checksum_constructor_ed25519keypair_generate(
+    fun uniffi_didtoolbox_checksum_constructor_ed25519keypair_generate(
     ): Short
-    fun uniffi_trustdidweb_checksum_constructor_trustdidwebprocessor_new(
+    fun uniffi_didtoolbox_checksum_constructor_trustdidwebprocessor_new(
     ): Short
-    fun uniffi_trustdidweb_checksum_constructor_trustdidwebprocessor_new_with_api_key(
+    fun uniffi_didtoolbox_checksum_constructor_trustdidwebprocessor_new_with_api_key(
     ): Short
-    fun ffi_trustdidweb_uniffi_contract_version(
+    fun ffi_didtoolbox_uniffi_contract_version(
     ): Int
     
 }
@@ -561,7 +561,7 @@ private fun uniffiCheckContractApiVersion(lib: UniffiLib) {
     // Get the bindings contract version from our ComponentInterface
     val bindings_contract_version = 25
     // Get the scaffolding contract version by calling the into the dylib
-    val scaffolding_contract_version = lib.ffi_trustdidweb_uniffi_contract_version()
+    val scaffolding_contract_version = lib.ffi_didtoolbox_uniffi_contract_version()
     if (bindings_contract_version != scaffolding_contract_version) {
         throw RuntimeException("UniFFI contract version mismatch: try cleaning and rebuilding your project")
     }
@@ -569,34 +569,34 @@ private fun uniffiCheckContractApiVersion(lib: UniffiLib) {
 
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: UniffiLib) {
-    if (lib.uniffi_trustdidweb_checksum_method_diddocumentstate_validate() != 15927.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_method_diddocumentstate_validate() != 26912.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_trustdidweb_checksum_method_trustdidwebprocessor_create() != 27588.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_method_trustdidwebprocessor_create() != 58245.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_trustdidweb_checksum_method_trustdidwebprocessor_deactivate() != 49896.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_method_trustdidwebprocessor_deactivate() != 8152.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_trustdidweb_checksum_method_trustdidwebprocessor_read() != 18942.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_method_trustdidwebprocessor_read() != 26042.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_trustdidweb_checksum_method_trustdidwebprocessor_update() != 12876.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_method_trustdidwebprocessor_update() != 58026.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_trustdidweb_checksum_constructor_diddocumentstate_from() != 9802.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_constructor_diddocumentstate_from() != 24730.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_trustdidweb_checksum_constructor_ed25519keypair_from() != 22349.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_constructor_ed25519keypair_from() != 44468.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_trustdidweb_checksum_constructor_ed25519keypair_generate() != 17274.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_constructor_ed25519keypair_generate() != 8955.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_trustdidweb_checksum_constructor_trustdidwebprocessor_new() != 53671.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_constructor_trustdidwebprocessor_new() != 14974.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_trustdidweb_checksum_constructor_trustdidwebprocessor_new_with_api_key() != 59590.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_constructor_trustdidwebprocessor_new_with_api_key() != 8107.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
 }
@@ -971,7 +971,7 @@ open class DidDocumentState : FFIObject, DidDocumentStateInterface {
         override fun run() {
             pointer?.let { ptr ->
                 uniffiRustCall { status ->
-                    UniffiLib.INSTANCE.uniffi_trustdidweb_fn_free_diddocumentstate(ptr, status)
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_free_diddocumentstate(ptr, status)
                 }
             }
         }
@@ -979,14 +979,14 @@ open class DidDocumentState : FFIObject, DidDocumentStateInterface {
 
     override fun uniffiClonePointer(): Pointer {
         return uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.uniffi_trustdidweb_fn_clone_diddocumentstate(pointer!!, status)
+            UniffiLib.INSTANCE.uniffi_didtoolbox_fn_clone_diddocumentstate(pointer!!, status)
         }
     }
 
     override fun `validate`(): DidDoc =
         callWithPointer {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_trustdidweb_fn_method_diddocumentstate_validate(it,
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddocumentstate_validate(it,
         
         _status)
 }
@@ -1001,7 +1001,7 @@ open class DidDocumentState : FFIObject, DidDocumentStateInterface {
         fun `from`(`didLog`: String): DidDocumentState =
             DidDocumentState(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_trustdidweb_fn_constructor_diddocumentstate_from(FfiConverterString.lower(`didLog`),_status)
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_diddocumentstate_from(FfiConverterString.lower(`didLog`),_status)
 })
         
     }
@@ -1064,7 +1064,7 @@ open class Ed25519KeyPair : FFIObject, Ed25519KeyPairInterface {
         override fun run() {
             pointer?.let { ptr ->
                 uniffiRustCall { status ->
-                    UniffiLib.INSTANCE.uniffi_trustdidweb_fn_free_ed25519keypair(ptr, status)
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_free_ed25519keypair(ptr, status)
                 }
             }
         }
@@ -1072,7 +1072,7 @@ open class Ed25519KeyPair : FFIObject, Ed25519KeyPairInterface {
 
     override fun uniffiClonePointer(): Pointer {
         return uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.uniffi_trustdidweb_fn_clone_ed25519keypair(pointer!!, status)
+            UniffiLib.INSTANCE.uniffi_didtoolbox_fn_clone_ed25519keypair(pointer!!, status)
         }
     }
 
@@ -1083,13 +1083,13 @@ open class Ed25519KeyPair : FFIObject, Ed25519KeyPairInterface {
         fun `from`(`signingKeyMultibase`: String): Ed25519KeyPair =
             Ed25519KeyPair(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_trustdidweb_fn_constructor_ed25519keypair_from(FfiConverterString.lower(`signingKeyMultibase`),_status)
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_ed25519keypair_from(FfiConverterString.lower(`signingKeyMultibase`),_status)
 })
         
         fun `generate`(): Ed25519KeyPair =
             Ed25519KeyPair(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_trustdidweb_fn_constructor_ed25519keypair_generate(_status)
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_ed25519keypair_generate(_status)
 })
         
     }
@@ -1154,7 +1154,7 @@ open class TrustDidWebProcessor : FFIObject, TrustDidWebProcessorInterface {
     constructor() :
         this(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_trustdidweb_fn_constructor_trustdidwebprocessor_new(_status)
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_trustdidwebprocessor_new(_status)
 })
 
     override val cleanable: UniffiCleaner.Cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
@@ -1165,7 +1165,7 @@ open class TrustDidWebProcessor : FFIObject, TrustDidWebProcessorInterface {
         override fun run() {
             pointer?.let { ptr ->
                 uniffiRustCall { status ->
-                    UniffiLib.INSTANCE.uniffi_trustdidweb_fn_free_trustdidwebprocessor(ptr, status)
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_free_trustdidwebprocessor(ptr, status)
                 }
             }
         }
@@ -1173,14 +1173,14 @@ open class TrustDidWebProcessor : FFIObject, TrustDidWebProcessorInterface {
 
     override fun uniffiClonePointer(): Pointer {
         return uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.uniffi_trustdidweb_fn_clone_trustdidwebprocessor(pointer!!, status)
+            UniffiLib.INSTANCE.uniffi_didtoolbox_fn_clone_trustdidwebprocessor(pointer!!, status)
         }
     }
 
     override fun `create`(`url`: String, `keyPair`: Ed25519KeyPair): String =
         callWithPointer {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_trustdidweb_fn_method_trustdidwebprocessor_create(it,
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_trustdidwebprocessor_create(it,
         FfiConverterString.lower(`url`),FfiConverterTypeEd25519KeyPair.lower(`keyPair`),
         _status)
 }
@@ -1191,7 +1191,7 @@ open class TrustDidWebProcessor : FFIObject, TrustDidWebProcessorInterface {
     override fun `deactivate`(`didTdw`: String, `keyPair`: Ed25519KeyPair): String =
         callWithPointer {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_trustdidweb_fn_method_trustdidwebprocessor_deactivate(it,
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_trustdidwebprocessor_deactivate(it,
         FfiConverterString.lower(`didTdw`),FfiConverterTypeEd25519KeyPair.lower(`keyPair`),
         _status)
 }
@@ -1202,7 +1202,7 @@ open class TrustDidWebProcessor : FFIObject, TrustDidWebProcessorInterface {
     override fun `read`(`didTdw`: String): String =
         callWithPointer {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_trustdidweb_fn_method_trustdidwebprocessor_read(it,
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_trustdidwebprocessor_read(it,
         FfiConverterString.lower(`didTdw`),
         _status)
 }
@@ -1213,7 +1213,7 @@ open class TrustDidWebProcessor : FFIObject, TrustDidWebProcessorInterface {
     override fun `update`(`didTdw`: String, `didDoc`: String, `keyPair`: Ed25519KeyPair): String =
         callWithPointer {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_trustdidweb_fn_method_trustdidwebprocessor_update(it,
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_trustdidwebprocessor_update(it,
         FfiConverterString.lower(`didTdw`),FfiConverterString.lower(`didDoc`),FfiConverterTypeEd25519KeyPair.lower(`keyPair`),
         _status)
 }
@@ -1228,7 +1228,7 @@ open class TrustDidWebProcessor : FFIObject, TrustDidWebProcessorInterface {
         fun `newWithApiKey`(`apiKey`: String): TrustDidWebProcessor =
             TrustDidWebProcessor(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_trustdidweb_fn_constructor_trustdidwebprocessor_new_with_api_key(FfiConverterString.lower(`apiKey`),_status)
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_trustdidwebprocessor_new_with_api_key(FfiConverterString.lower(`apiKey`),_status)
 })
         
     }
@@ -1319,11 +1319,45 @@ public object FfiConverterTypeDidDoc: FfiConverterRustBuffer<DidDoc> {
 
 
 
+data class Jwk (
+    var `kty`: String, 
+    var `crv`: String, 
+    var `x`: String
+) {
+    
+    companion object
+}
+
+public object FfiConverterTypeJwk: FfiConverterRustBuffer<Jwk> {
+    override fun read(buf: ByteBuffer): Jwk {
+        return Jwk(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: Jwk) = (
+            FfiConverterString.allocationSize(value.`kty`) +
+            FfiConverterString.allocationSize(value.`crv`) +
+            FfiConverterString.allocationSize(value.`x`)
+    )
+
+    override fun write(value: Jwk, buf: ByteBuffer) {
+            FfiConverterString.write(value.`kty`, buf)
+            FfiConverterString.write(value.`crv`, buf)
+            FfiConverterString.write(value.`x`, buf)
+    }
+}
+
+
+
 data class VerificationMethod (
     var `id`: String, 
     var `controller`: String, 
     var `verificationType`: String, 
-    var `publicKeyMultibase`: String
+    var `publicKeyMultibase`: String?, 
+    var `publicKeyJwk`: Jwk?
 ) {
     
     companion object
@@ -1335,7 +1369,8 @@ public object FfiConverterTypeVerificationMethod: FfiConverterRustBuffer<Verific
             FfiConverterString.read(buf),
             FfiConverterString.read(buf),
             FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalTypeJwk.read(buf),
         )
     }
 
@@ -1343,14 +1378,16 @@ public object FfiConverterTypeVerificationMethod: FfiConverterRustBuffer<Verific
             FfiConverterString.allocationSize(value.`id`) +
             FfiConverterString.allocationSize(value.`controller`) +
             FfiConverterString.allocationSize(value.`verificationType`) +
-            FfiConverterString.allocationSize(value.`publicKeyMultibase`)
+            FfiConverterOptionalString.allocationSize(value.`publicKeyMultibase`) +
+            FfiConverterOptionalTypeJwk.allocationSize(value.`publicKeyJwk`)
     )
 
     override fun write(value: VerificationMethod, buf: ByteBuffer) {
             FfiConverterString.write(value.`id`, buf)
             FfiConverterString.write(value.`controller`, buf)
             FfiConverterString.write(value.`verificationType`, buf)
-            FfiConverterString.write(value.`publicKeyMultibase`, buf)
+            FfiConverterOptionalString.write(value.`publicKeyMultibase`, buf)
+            FfiConverterOptionalTypeJwk.write(value.`publicKeyJwk`, buf)
     }
 }
 
@@ -1379,6 +1416,64 @@ public object FfiConverterOptionalBoolean: FfiConverterRustBuffer<Boolean?> {
         } else {
             buf.put(1)
             FfiConverterBoolean.write(value, buf)
+        }
+    }
+}
+
+
+
+
+public object FfiConverterOptionalString: FfiConverterRustBuffer<String?> {
+    override fun read(buf: ByteBuffer): String? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterString.read(buf)
+    }
+
+    override fun allocationSize(value: String?): Int {
+        if (value == null) {
+            return 1
+        } else {
+            return 1 + FfiConverterString.allocationSize(value)
+        }
+    }
+
+    override fun write(value: String?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterString.write(value, buf)
+        }
+    }
+}
+
+
+
+
+public object FfiConverterOptionalTypeJwk: FfiConverterRustBuffer<Jwk?> {
+    override fun read(buf: ByteBuffer): Jwk? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeJwk.read(buf)
+    }
+
+    override fun allocationSize(value: Jwk?): Int {
+        if (value == null) {
+            return 1
+        } else {
+            return 1 + FfiConverterTypeJwk.allocationSize(value)
+        }
+    }
+
+    override fun write(value: Jwk?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeJwk.write(value, buf)
         }
     }
 }

@@ -31,6 +31,9 @@ import java.nio.charset.CodingErrorAction
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import uniffi.didtoolbox.DidDoc
+import uniffi.didtoolbox.FfiConverterTypeDidDoc
+import uniffi.didtoolbox.RustBuffer as RustBufferDidDoc
 
 // This is a helper for safely working with byte buffers returned from the Rust code.
 // A rust-owned buffer is represented by its capacity, its current length, and a
@@ -395,7 +398,7 @@ internal interface UniffiLib : Library {
     fun uniffi_didresolver_fn_constructor_did_new(`text`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
     fun uniffi_didresolver_fn_method_did_resolve(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
+    ): RustBufferDidDoc.ByValue
     fun ffi_didresolver_rustbuffer_alloc(`size`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun ffi_didresolver_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -529,7 +532,7 @@ private fun uniffiCheckContractApiVersion(lib: UniffiLib) {
 
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: UniffiLib) {
-    if (lib.uniffi_didresolver_checksum_method_did_resolve() != 49324.toShort()) {
+    if (lib.uniffi_didresolver_checksum_method_did_resolve() != 34696.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_didresolver_checksum_constructor_did_new() != 50637.toShort()) {
@@ -571,26 +574,6 @@ inline fun <T : Disposable?, R> T.use(block: (T) -> R) =
             // swallow
         }
     }
-
-public object FfiConverterBoolean: FfiConverter<Boolean, Byte> {
-    override fun lift(value: Byte): Boolean {
-        return value.toInt() != 0
-    }
-
-    override fun read(buf: ByteBuffer): Boolean {
-        return lift(buf.get())
-    }
-
-    override fun lower(value: Boolean): Byte {
-        return if (value) 1.toByte() else 0.toByte()
-    }
-
-    override fun allocationSize(value: Boolean) = 1
-
-    override fun write(value: Boolean, buf: ByteBuffer) {
-        buf.put(lower(value))
-    }
-}
 
 public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
     // Note: we don't inherit from FfiConverterRustBuffer, because we use a
@@ -970,137 +953,6 @@ public object FfiConverterTypeDid: FfiConverter<Did, Pointer> {
 
 
 
-data class DidDoc (
-    var `context`: List<String>, 
-    var `id`: String, 
-    var `verificationMethod`: List<PublicKey>, 
-    var `authentication`: List<PublicKey>, 
-    var `capabilityInvocation`: List<PublicKey>, 
-    var `capabilityDelegation`: List<PublicKey>, 
-    var `assertionMethod`: List<PublicKey>, 
-    var `controller`: List<String>, 
-    var `deactivated`: Boolean?
-) {
-    
-    companion object
-}
-
-public object FfiConverterTypeDidDoc: FfiConverterRustBuffer<DidDoc> {
-    override fun read(buf: ByteBuffer): DidDoc {
-        return DidDoc(
-            FfiConverterSequenceString.read(buf),
-            FfiConverterString.read(buf),
-            FfiConverterSequenceTypePublicKey.read(buf),
-            FfiConverterSequenceTypePublicKey.read(buf),
-            FfiConverterSequenceTypePublicKey.read(buf),
-            FfiConverterSequenceTypePublicKey.read(buf),
-            FfiConverterSequenceTypePublicKey.read(buf),
-            FfiConverterSequenceString.read(buf),
-            FfiConverterOptionalBoolean.read(buf),
-        )
-    }
-
-    override fun allocationSize(value: DidDoc) = (
-            FfiConverterSequenceString.allocationSize(value.`context`) +
-            FfiConverterString.allocationSize(value.`id`) +
-            FfiConverterSequenceTypePublicKey.allocationSize(value.`verificationMethod`) +
-            FfiConverterSequenceTypePublicKey.allocationSize(value.`authentication`) +
-            FfiConverterSequenceTypePublicKey.allocationSize(value.`capabilityInvocation`) +
-            FfiConverterSequenceTypePublicKey.allocationSize(value.`capabilityDelegation`) +
-            FfiConverterSequenceTypePublicKey.allocationSize(value.`assertionMethod`) +
-            FfiConverterSequenceString.allocationSize(value.`controller`) +
-            FfiConverterOptionalBoolean.allocationSize(value.`deactivated`)
-    )
-
-    override fun write(value: DidDoc, buf: ByteBuffer) {
-            FfiConverterSequenceString.write(value.`context`, buf)
-            FfiConverterString.write(value.`id`, buf)
-            FfiConverterSequenceTypePublicKey.write(value.`verificationMethod`, buf)
-            FfiConverterSequenceTypePublicKey.write(value.`authentication`, buf)
-            FfiConverterSequenceTypePublicKey.write(value.`capabilityInvocation`, buf)
-            FfiConverterSequenceTypePublicKey.write(value.`capabilityDelegation`, buf)
-            FfiConverterSequenceTypePublicKey.write(value.`assertionMethod`, buf)
-            FfiConverterSequenceString.write(value.`controller`, buf)
-            FfiConverterOptionalBoolean.write(value.`deactivated`, buf)
-    }
-}
-
-
-
-data class Jwk (
-    var `kty`: String, 
-    var `crv`: String, 
-    var `x`: String
-) {
-    
-    companion object
-}
-
-public object FfiConverterTypeJwk: FfiConverterRustBuffer<Jwk> {
-    override fun read(buf: ByteBuffer): Jwk {
-        return Jwk(
-            FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
-        )
-    }
-
-    override fun allocationSize(value: Jwk) = (
-            FfiConverterString.allocationSize(value.`kty`) +
-            FfiConverterString.allocationSize(value.`crv`) +
-            FfiConverterString.allocationSize(value.`x`)
-    )
-
-    override fun write(value: Jwk, buf: ByteBuffer) {
-            FfiConverterString.write(value.`kty`, buf)
-            FfiConverterString.write(value.`crv`, buf)
-            FfiConverterString.write(value.`x`, buf)
-    }
-}
-
-
-
-data class PublicKey (
-    var `id`: String, 
-    var `keyType`: String, 
-    var `controller`: String, 
-    var `publicKeyMultibase`: String?, 
-    var `publicKeyJwk`: Jwk?
-) {
-    
-    companion object
-}
-
-public object FfiConverterTypePublicKey: FfiConverterRustBuffer<PublicKey> {
-    override fun read(buf: ByteBuffer): PublicKey {
-        return PublicKey(
-            FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
-            FfiConverterOptionalString.read(buf),
-            FfiConverterOptionalTypeJwk.read(buf),
-        )
-    }
-
-    override fun allocationSize(value: PublicKey) = (
-            FfiConverterString.allocationSize(value.`id`) +
-            FfiConverterString.allocationSize(value.`keyType`) +
-            FfiConverterString.allocationSize(value.`controller`) +
-            FfiConverterOptionalString.allocationSize(value.`publicKeyMultibase`) +
-            FfiConverterOptionalTypeJwk.allocationSize(value.`publicKeyJwk`)
-    )
-
-    override fun write(value: PublicKey, buf: ByteBuffer) {
-            FfiConverterString.write(value.`id`, buf)
-            FfiConverterString.write(value.`keyType`, buf)
-            FfiConverterString.write(value.`controller`, buf)
-            FfiConverterOptionalString.write(value.`publicKeyMultibase`, buf)
-            FfiConverterOptionalTypeJwk.write(value.`publicKeyJwk`, buf)
-    }
-}
-
-
-
 
 
 sealed class DidResolveException(message: String): Exception(message) {
@@ -1148,137 +1000,4 @@ public object FfiConverterTypeDidResolveError : FfiConverterRustBuffer<DidResolv
 
 
 
-public object FfiConverterOptionalBoolean: FfiConverterRustBuffer<Boolean?> {
-    override fun read(buf: ByteBuffer): Boolean? {
-        if (buf.get().toInt() == 0) {
-            return null
-        }
-        return FfiConverterBoolean.read(buf)
-    }
-
-    override fun allocationSize(value: Boolean?): Int {
-        if (value == null) {
-            return 1
-        } else {
-            return 1 + FfiConverterBoolean.allocationSize(value)
-        }
-    }
-
-    override fun write(value: Boolean?, buf: ByteBuffer) {
-        if (value == null) {
-            buf.put(0)
-        } else {
-            buf.put(1)
-            FfiConverterBoolean.write(value, buf)
-        }
-    }
-}
-
-
-
-
-public object FfiConverterOptionalString: FfiConverterRustBuffer<String?> {
-    override fun read(buf: ByteBuffer): String? {
-        if (buf.get().toInt() == 0) {
-            return null
-        }
-        return FfiConverterString.read(buf)
-    }
-
-    override fun allocationSize(value: String?): Int {
-        if (value == null) {
-            return 1
-        } else {
-            return 1 + FfiConverterString.allocationSize(value)
-        }
-    }
-
-    override fun write(value: String?, buf: ByteBuffer) {
-        if (value == null) {
-            buf.put(0)
-        } else {
-            buf.put(1)
-            FfiConverterString.write(value, buf)
-        }
-    }
-}
-
-
-
-
-public object FfiConverterOptionalTypeJwk: FfiConverterRustBuffer<Jwk?> {
-    override fun read(buf: ByteBuffer): Jwk? {
-        if (buf.get().toInt() == 0) {
-            return null
-        }
-        return FfiConverterTypeJwk.read(buf)
-    }
-
-    override fun allocationSize(value: Jwk?): Int {
-        if (value == null) {
-            return 1
-        } else {
-            return 1 + FfiConverterTypeJwk.allocationSize(value)
-        }
-    }
-
-    override fun write(value: Jwk?, buf: ByteBuffer) {
-        if (value == null) {
-            buf.put(0)
-        } else {
-            buf.put(1)
-            FfiConverterTypeJwk.write(value, buf)
-        }
-    }
-}
-
-
-
-
-public object FfiConverterSequenceString: FfiConverterRustBuffer<List<String>> {
-    override fun read(buf: ByteBuffer): List<String> {
-        val len = buf.getInt()
-        return List<String>(len) {
-            FfiConverterString.read(buf)
-        }
-    }
-
-    override fun allocationSize(value: List<String>): Int {
-        val sizeForLength = 4
-        val sizeForItems = value.map { FfiConverterString.allocationSize(it) }.sum()
-        return sizeForLength + sizeForItems
-    }
-
-    override fun write(value: List<String>, buf: ByteBuffer) {
-        buf.putInt(value.size)
-        value.forEach {
-            FfiConverterString.write(it, buf)
-        }
-    }
-}
-
-
-
-
-public object FfiConverterSequenceTypePublicKey: FfiConverterRustBuffer<List<PublicKey>> {
-    override fun read(buf: ByteBuffer): List<PublicKey> {
-        val len = buf.getInt()
-        return List<PublicKey>(len) {
-            FfiConverterTypePublicKey.read(buf)
-        }
-    }
-
-    override fun allocationSize(value: List<PublicKey>): Int {
-        val sizeForLength = 4
-        val sizeForItems = value.map { FfiConverterTypePublicKey.allocationSize(it) }.sum()
-        return sizeForLength + sizeForItems
-    }
-
-    override fun write(value: List<PublicKey>, buf: ByteBuffer) {
-        buf.putInt(value.size)
-        value.forEach {
-            FfiConverterTypePublicKey.write(it, buf)
-        }
-    }
-}
 

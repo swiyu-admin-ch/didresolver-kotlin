@@ -3,8 +3,9 @@ plugins {
     `maven-publish`
 }
 
-group = "uniffi"
-version = "0.0.1"
+group =
+ "uniffi"
+version = "0.0.2"
 
 repositories {
     // Use Maven Central for resolving dependencies.
@@ -26,7 +27,7 @@ publishing {
         register<MavenPublication>("gpr") {
             groupId = "uniffi"
             artifactId = "didresolver"
-            version = "0.0.1"
+            version = "0.0.2"
             from(components["kotlin"])
         }
     }
