@@ -404,6 +404,54 @@ internal interface UniffiLib : Library {
     ): Pointer
     fun uniffi_didtoolbox_fn_constructor_ed25519keypair_generate(uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
+    fun uniffi_didtoolbox_fn_method_ed25519keypair_get_signing_key(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_didtoolbox_fn_method_ed25519keypair_get_verifying_key(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_didtoolbox_fn_method_ed25519keypair_sign(`ptr`: Pointer,`message`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_didtoolbox_fn_clone_ed25519signature(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_didtoolbox_fn_free_ed25519signature(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_didtoolbox_fn_constructor_ed25519signature_from_multibase(`multibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_didtoolbox_fn_method_ed25519signature_to_multibase(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_didtoolbox_fn_clone_ed25519signingkey(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_didtoolbox_fn_free_ed25519signingkey(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_didtoolbox_fn_constructor_ed25519signingkey_from_multibase(`multibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_didtoolbox_fn_method_ed25519signingkey_to_multibase(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_didtoolbox_fn_clone_ed25519verifyingkey(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_didtoolbox_fn_free_ed25519verifyingkey(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_didtoolbox_fn_constructor_ed25519verifyingkey_from_multibase(`multibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_didtoolbox_fn_method_ed25519verifyingkey_to_multibase(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_didtoolbox_fn_clone_trustdidweb(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_didtoolbox_fn_free_trustdidweb(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_didtoolbox_fn_constructor_trustdidweb_create(`url`: RustBuffer.ByValue,`keyPair`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_didtoolbox_fn_constructor_trustdidweb_deactivate(`didTdw`: RustBuffer.ByValue,`didLog`: RustBuffer.ByValue,`keyPair`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_didtoolbox_fn_constructor_trustdidweb_read(`didTdw`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_didtoolbox_fn_constructor_trustdidweb_update(`didTdw`: RustBuffer.ByValue,`didLog`: RustBuffer.ByValue,`didDoc`: RustBuffer.ByValue,`keyPair`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_didtoolbox_fn_method_trustdidweb_get_did(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_didtoolbox_fn_method_trustdidweb_get_did_doc(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_didtoolbox_fn_method_trustdidweb_get_did_log(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_didtoolbox_fn_clone_trustdidwebprocessor(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
     fun uniffi_didtoolbox_fn_free_trustdidwebprocessor(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
@@ -534,6 +582,24 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_didtoolbox_checksum_method_diddocumentstate_validate(
     ): Short
+    fun uniffi_didtoolbox_checksum_method_ed25519keypair_get_signing_key(
+    ): Short
+    fun uniffi_didtoolbox_checksum_method_ed25519keypair_get_verifying_key(
+    ): Short
+    fun uniffi_didtoolbox_checksum_method_ed25519keypair_sign(
+    ): Short
+    fun uniffi_didtoolbox_checksum_method_ed25519signature_to_multibase(
+    ): Short
+    fun uniffi_didtoolbox_checksum_method_ed25519signingkey_to_multibase(
+    ): Short
+    fun uniffi_didtoolbox_checksum_method_ed25519verifyingkey_to_multibase(
+    ): Short
+    fun uniffi_didtoolbox_checksum_method_trustdidweb_get_did(
+    ): Short
+    fun uniffi_didtoolbox_checksum_method_trustdidweb_get_did_doc(
+    ): Short
+    fun uniffi_didtoolbox_checksum_method_trustdidweb_get_did_log(
+    ): Short
     fun uniffi_didtoolbox_checksum_method_trustdidwebprocessor_create(
     ): Short
     fun uniffi_didtoolbox_checksum_method_trustdidwebprocessor_deactivate(
@@ -547,6 +613,20 @@ internal interface UniffiLib : Library {
     fun uniffi_didtoolbox_checksum_constructor_ed25519keypair_from(
     ): Short
     fun uniffi_didtoolbox_checksum_constructor_ed25519keypair_generate(
+    ): Short
+    fun uniffi_didtoolbox_checksum_constructor_ed25519signature_from_multibase(
+    ): Short
+    fun uniffi_didtoolbox_checksum_constructor_ed25519signingkey_from_multibase(
+    ): Short
+    fun uniffi_didtoolbox_checksum_constructor_ed25519verifyingkey_from_multibase(
+    ): Short
+    fun uniffi_didtoolbox_checksum_constructor_trustdidweb_create(
+    ): Short
+    fun uniffi_didtoolbox_checksum_constructor_trustdidweb_deactivate(
+    ): Short
+    fun uniffi_didtoolbox_checksum_constructor_trustdidweb_read(
+    ): Short
+    fun uniffi_didtoolbox_checksum_constructor_trustdidweb_update(
     ): Short
     fun uniffi_didtoolbox_checksum_constructor_trustdidwebprocessor_new(
     ): Short
@@ -572,6 +652,33 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_didtoolbox_checksum_method_diddocumentstate_validate() != 26912.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_didtoolbox_checksum_method_ed25519keypair_get_signing_key() != 65401.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_didtoolbox_checksum_method_ed25519keypair_get_verifying_key() != 31026.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_didtoolbox_checksum_method_ed25519keypair_sign() != 30995.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_didtoolbox_checksum_method_ed25519signature_to_multibase() != 52563.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_didtoolbox_checksum_method_ed25519signingkey_to_multibase() != 25405.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_didtoolbox_checksum_method_ed25519verifyingkey_to_multibase() != 25116.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_didtoolbox_checksum_method_trustdidweb_get_did() != 41881.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_didtoolbox_checksum_method_trustdidweb_get_did_doc() != 27888.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_didtoolbox_checksum_method_trustdidweb_get_did_log() != 54432.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_didtoolbox_checksum_method_trustdidwebprocessor_create() != 58245.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -591,6 +698,27 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_didtoolbox_checksum_constructor_ed25519keypair_generate() != 8955.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_didtoolbox_checksum_constructor_ed25519signature_from_multibase() != 23579.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_didtoolbox_checksum_constructor_ed25519signingkey_from_multibase() != 64295.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_didtoolbox_checksum_constructor_ed25519verifyingkey_from_multibase() != 58428.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_didtoolbox_checksum_constructor_trustdidweb_create() != 57973.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_didtoolbox_checksum_constructor_trustdidweb_deactivate() != 32104.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_didtoolbox_checksum_constructor_trustdidweb_read() != 16193.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_didtoolbox_checksum_constructor_trustdidweb_update() != 28210.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_didtoolbox_checksum_constructor_trustdidwebprocessor_new() != 14974.toShort()) {
@@ -1039,6 +1167,12 @@ public object FfiConverterTypeDidDocumentState: FfiConverter<DidDocumentState, P
 
 public interface Ed25519KeyPairInterface {
     
+    fun `getSigningKey`(): Ed25519SigningKey
+    
+    fun `getVerifyingKey`(): Ed25519VerifyingKey
+    
+    fun `sign`(`message`: String): Ed25519Signature
+    
     companion object
 }
 
@@ -1076,6 +1210,39 @@ open class Ed25519KeyPair : FFIObject, Ed25519KeyPairInterface {
         }
     }
 
+    override fun `getSigningKey`(): Ed25519SigningKey =
+        callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519keypair_get_signing_key(it,
+        
+        _status)
+}
+        }.let {
+            FfiConverterTypeEd25519SigningKey.lift(it)
+        }
+    
+    override fun `getVerifyingKey`(): Ed25519VerifyingKey =
+        callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519keypair_get_verifying_key(it,
+        
+        _status)
+}
+        }.let {
+            FfiConverterTypeEd25519VerifyingKey.lift(it)
+        }
+    
+    override fun `sign`(`message`: String): Ed25519Signature =
+        callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519keypair_sign(it,
+        FfiConverterString.lower(`message`),
+        _status)
+}
+        }.let {
+            FfiConverterTypeEd25519Signature.lift(it)
+        }
+    
     
 
     companion object {
@@ -1115,6 +1282,430 @@ public object FfiConverterTypeEd25519KeyPair: FfiConverter<Ed25519KeyPair, Point
     override fun allocationSize(value: Ed25519KeyPair) = 8
 
     override fun write(value: Ed25519KeyPair, buf: ByteBuffer) {
+        // The Rust code always expects pointers written as 8 bytes,
+        // and will fail to compile if they don't fit.
+        buf.putLong(Pointer.nativeValue(lower(value)))
+    }
+}
+
+
+
+
+
+public interface Ed25519SignatureInterface {
+    
+    fun `toMultibase`(): String
+    
+    companion object
+}
+
+open class Ed25519Signature : FFIObject, Ed25519SignatureInterface {
+
+    constructor(pointer: Pointer): super(pointer)
+
+    /**
+     * This constructor can be used to instantiate a fake object.
+     *
+     * **WARNING: Any object instantiated with this constructor cannot be passed to an actual Rust-backed object.**
+     * Since there isn't a backing [Pointer] the FFI lower functions will crash.
+     * @param noPointer Placeholder value so we can have a constructor separate from the default empty one that may be
+     *   implemented for classes extending [FFIObject].
+     */
+    constructor(noPointer: NoPointer): super(noPointer)
+
+    override val cleanable: UniffiCleaner.Cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+
+    // Use a static inner class instead of a closure so as not to accidentally
+    // capture `this` as part of the cleanable's action.
+    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+        override fun run() {
+            pointer?.let { ptr ->
+                uniffiRustCall { status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_free_ed25519signature(ptr, status)
+                }
+            }
+        }
+    }
+
+    override fun uniffiClonePointer(): Pointer {
+        return uniffiRustCall() { status ->
+            UniffiLib.INSTANCE.uniffi_didtoolbox_fn_clone_ed25519signature(pointer!!, status)
+        }
+    }
+
+    override fun `toMultibase`(): String =
+        callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519signature_to_multibase(it,
+        
+        _status)
+}
+        }.let {
+            FfiConverterString.lift(it)
+        }
+    
+    
+
+    companion object {
+        
+        fun `fromMultibase`(`multibase`: String): Ed25519Signature =
+            Ed25519Signature(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_ed25519signature_from_multibase(FfiConverterString.lower(`multibase`),_status)
+})
+        
+    }
+    
+}
+
+public object FfiConverterTypeEd25519Signature: FfiConverter<Ed25519Signature, Pointer> {
+
+    override fun lower(value: Ed25519Signature): Pointer {
+        return value.uniffiClonePointer()
+    }
+
+    override fun lift(value: Pointer): Ed25519Signature {
+        return Ed25519Signature(value)
+    }
+
+    override fun read(buf: ByteBuffer): Ed25519Signature {
+        // The Rust code always writes pointers as 8 bytes, and will
+        // fail to compile if they don't fit.
+        return lift(Pointer(buf.getLong()))
+    }
+
+    override fun allocationSize(value: Ed25519Signature) = 8
+
+    override fun write(value: Ed25519Signature, buf: ByteBuffer) {
+        // The Rust code always expects pointers written as 8 bytes,
+        // and will fail to compile if they don't fit.
+        buf.putLong(Pointer.nativeValue(lower(value)))
+    }
+}
+
+
+
+
+
+public interface Ed25519SigningKeyInterface {
+    
+    fun `toMultibase`(): String
+    
+    companion object
+}
+
+open class Ed25519SigningKey : FFIObject, Ed25519SigningKeyInterface {
+
+    constructor(pointer: Pointer): super(pointer)
+
+    /**
+     * This constructor can be used to instantiate a fake object.
+     *
+     * **WARNING: Any object instantiated with this constructor cannot be passed to an actual Rust-backed object.**
+     * Since there isn't a backing [Pointer] the FFI lower functions will crash.
+     * @param noPointer Placeholder value so we can have a constructor separate from the default empty one that may be
+     *   implemented for classes extending [FFIObject].
+     */
+    constructor(noPointer: NoPointer): super(noPointer)
+
+    override val cleanable: UniffiCleaner.Cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+
+    // Use a static inner class instead of a closure so as not to accidentally
+    // capture `this` as part of the cleanable's action.
+    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+        override fun run() {
+            pointer?.let { ptr ->
+                uniffiRustCall { status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_free_ed25519signingkey(ptr, status)
+                }
+            }
+        }
+    }
+
+    override fun uniffiClonePointer(): Pointer {
+        return uniffiRustCall() { status ->
+            UniffiLib.INSTANCE.uniffi_didtoolbox_fn_clone_ed25519signingkey(pointer!!, status)
+        }
+    }
+
+    override fun `toMultibase`(): String =
+        callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519signingkey_to_multibase(it,
+        
+        _status)
+}
+        }.let {
+            FfiConverterString.lift(it)
+        }
+    
+    
+
+    companion object {
+        
+        fun `fromMultibase`(`multibase`: String): Ed25519SigningKey =
+            Ed25519SigningKey(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_ed25519signingkey_from_multibase(FfiConverterString.lower(`multibase`),_status)
+})
+        
+    }
+    
+}
+
+public object FfiConverterTypeEd25519SigningKey: FfiConverter<Ed25519SigningKey, Pointer> {
+
+    override fun lower(value: Ed25519SigningKey): Pointer {
+        return value.uniffiClonePointer()
+    }
+
+    override fun lift(value: Pointer): Ed25519SigningKey {
+        return Ed25519SigningKey(value)
+    }
+
+    override fun read(buf: ByteBuffer): Ed25519SigningKey {
+        // The Rust code always writes pointers as 8 bytes, and will
+        // fail to compile if they don't fit.
+        return lift(Pointer(buf.getLong()))
+    }
+
+    override fun allocationSize(value: Ed25519SigningKey) = 8
+
+    override fun write(value: Ed25519SigningKey, buf: ByteBuffer) {
+        // The Rust code always expects pointers written as 8 bytes,
+        // and will fail to compile if they don't fit.
+        buf.putLong(Pointer.nativeValue(lower(value)))
+    }
+}
+
+
+
+
+
+public interface Ed25519VerifyingKeyInterface {
+    
+    fun `toMultibase`(): String
+    
+    companion object
+}
+
+open class Ed25519VerifyingKey : FFIObject, Ed25519VerifyingKeyInterface {
+
+    constructor(pointer: Pointer): super(pointer)
+
+    /**
+     * This constructor can be used to instantiate a fake object.
+     *
+     * **WARNING: Any object instantiated with this constructor cannot be passed to an actual Rust-backed object.**
+     * Since there isn't a backing [Pointer] the FFI lower functions will crash.
+     * @param noPointer Placeholder value so we can have a constructor separate from the default empty one that may be
+     *   implemented for classes extending [FFIObject].
+     */
+    constructor(noPointer: NoPointer): super(noPointer)
+
+    override val cleanable: UniffiCleaner.Cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+
+    // Use a static inner class instead of a closure so as not to accidentally
+    // capture `this` as part of the cleanable's action.
+    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+        override fun run() {
+            pointer?.let { ptr ->
+                uniffiRustCall { status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_free_ed25519verifyingkey(ptr, status)
+                }
+            }
+        }
+    }
+
+    override fun uniffiClonePointer(): Pointer {
+        return uniffiRustCall() { status ->
+            UniffiLib.INSTANCE.uniffi_didtoolbox_fn_clone_ed25519verifyingkey(pointer!!, status)
+        }
+    }
+
+    override fun `toMultibase`(): String =
+        callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519verifyingkey_to_multibase(it,
+        
+        _status)
+}
+        }.let {
+            FfiConverterString.lift(it)
+        }
+    
+    
+
+    companion object {
+        
+        fun `fromMultibase`(`multibase`: String): Ed25519VerifyingKey =
+            Ed25519VerifyingKey(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_ed25519verifyingkey_from_multibase(FfiConverterString.lower(`multibase`),_status)
+})
+        
+    }
+    
+}
+
+public object FfiConverterTypeEd25519VerifyingKey: FfiConverter<Ed25519VerifyingKey, Pointer> {
+
+    override fun lower(value: Ed25519VerifyingKey): Pointer {
+        return value.uniffiClonePointer()
+    }
+
+    override fun lift(value: Pointer): Ed25519VerifyingKey {
+        return Ed25519VerifyingKey(value)
+    }
+
+    override fun read(buf: ByteBuffer): Ed25519VerifyingKey {
+        // The Rust code always writes pointers as 8 bytes, and will
+        // fail to compile if they don't fit.
+        return lift(Pointer(buf.getLong()))
+    }
+
+    override fun allocationSize(value: Ed25519VerifyingKey) = 8
+
+    override fun write(value: Ed25519VerifyingKey, buf: ByteBuffer) {
+        // The Rust code always expects pointers written as 8 bytes,
+        // and will fail to compile if they don't fit.
+        buf.putLong(Pointer.nativeValue(lower(value)))
+    }
+}
+
+
+
+
+
+public interface TrustDidWebInterface {
+    
+    fun `getDid`(): String
+    
+    fun `getDidDoc`(): String
+    
+    fun `getDidLog`(): String
+    
+    companion object
+}
+
+open class TrustDidWeb : FFIObject, TrustDidWebInterface {
+
+    constructor(pointer: Pointer): super(pointer)
+
+    /**
+     * This constructor can be used to instantiate a fake object.
+     *
+     * **WARNING: Any object instantiated with this constructor cannot be passed to an actual Rust-backed object.**
+     * Since there isn't a backing [Pointer] the FFI lower functions will crash.
+     * @param noPointer Placeholder value so we can have a constructor separate from the default empty one that may be
+     *   implemented for classes extending [FFIObject].
+     */
+    constructor(noPointer: NoPointer): super(noPointer)
+
+    override val cleanable: UniffiCleaner.Cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+
+    // Use a static inner class instead of a closure so as not to accidentally
+    // capture `this` as part of the cleanable's action.
+    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+        override fun run() {
+            pointer?.let { ptr ->
+                uniffiRustCall { status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_free_trustdidweb(ptr, status)
+                }
+            }
+        }
+    }
+
+    override fun uniffiClonePointer(): Pointer {
+        return uniffiRustCall() { status ->
+            UniffiLib.INSTANCE.uniffi_didtoolbox_fn_clone_trustdidweb(pointer!!, status)
+        }
+    }
+
+    override fun `getDid`(): String =
+        callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_trustdidweb_get_did(it,
+        
+        _status)
+}
+        }.let {
+            FfiConverterString.lift(it)
+        }
+    
+    override fun `getDidDoc`(): String =
+        callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_trustdidweb_get_did_doc(it,
+        
+        _status)
+}
+        }.let {
+            FfiConverterString.lift(it)
+        }
+    
+    override fun `getDidLog`(): String =
+        callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_trustdidweb_get_did_log(it,
+        
+        _status)
+}
+        }.let {
+            FfiConverterString.lift(it)
+        }
+    
+    
+
+    companion object {
+        
+        fun `create`(`url`: String, `keyPair`: Ed25519KeyPair): TrustDidWeb =
+            TrustDidWeb(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_trustdidweb_create(FfiConverterString.lower(`url`),FfiConverterTypeEd25519KeyPair.lower(`keyPair`),_status)
+})
+        
+        fun `deactivate`(`didTdw`: String, `didLog`: String, `keyPair`: Ed25519KeyPair): TrustDidWeb =
+            TrustDidWeb(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_trustdidweb_deactivate(FfiConverterString.lower(`didTdw`),FfiConverterString.lower(`didLog`),FfiConverterTypeEd25519KeyPair.lower(`keyPair`),_status)
+})
+        
+        fun `read`(`didTdw`: String): TrustDidWeb =
+            TrustDidWeb(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_trustdidweb_read(FfiConverterString.lower(`didTdw`),_status)
+})
+        
+        fun `update`(`didTdw`: String, `didLog`: String, `didDoc`: String, `keyPair`: Ed25519KeyPair): TrustDidWeb =
+            TrustDidWeb(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_trustdidweb_update(FfiConverterString.lower(`didTdw`),FfiConverterString.lower(`didLog`),FfiConverterString.lower(`didDoc`),FfiConverterTypeEd25519KeyPair.lower(`keyPair`),_status)
+})
+        
+    }
+    
+}
+
+public object FfiConverterTypeTrustDidWeb: FfiConverter<TrustDidWeb, Pointer> {
+
+    override fun lower(value: TrustDidWeb): Pointer {
+        return value.uniffiClonePointer()
+    }
+
+    override fun lift(value: Pointer): TrustDidWeb {
+        return TrustDidWeb(value)
+    }
+
+    override fun read(buf: ByteBuffer): TrustDidWeb {
+        // The Rust code always writes pointers as 8 bytes, and will
+        // fail to compile if they don't fit.
+        return lift(Pointer(buf.getLong()))
+    }
+
+    override fun allocationSize(value: TrustDidWeb) = 8
+
+    override fun write(value: TrustDidWeb, buf: ByteBuffer) {
         // The Rust code always expects pointers written as 8 bytes,
         // and will fail to compile if they don't fit.
         buf.putLong(Pointer.nativeValue(lower(value)))
