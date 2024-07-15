@@ -4,7 +4,7 @@ plugins {
 }
 
 group =
- "uniffi"
+ "ch.admin.eid.didresolver"
 version = "0.0.3"
 
 repositories {
@@ -25,9 +25,9 @@ kotlin {
 publishing {
     publications {
         register<MavenPublication>("gpr") {
-            groupId = "uniffi"
+            groupId = "ch.admin.eid.didresolver"
             artifactId = "didresolver"
-            version = "0.0.3"
+            version = "0.0.4"
             from(components["kotlin"])
         }
     }
