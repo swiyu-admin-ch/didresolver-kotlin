@@ -3,7 +3,7 @@
 
 @file:Suppress("NAME_SHADOWING")
 
-package ch.admin.eid.didresolver.did;
+package ch.admin.eid.didresolver;
 
 // Common helper code.
 //
@@ -29,11 +29,11 @@ import java.nio.ByteOrder
 import java.nio.CharBuffer
 import java.nio.charset.CodingErrorAction
 import java.util.concurrent.ConcurrentHashMap
+import ch.admin.eid.didtoolbox.DidDoc
+import ch.admin.eid.didtoolbox.FfiConverterTypeDidDoc
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
-import ch.admin.eid.didresolver.didtoolbox.DidDoc
-import ch.admin.eid.didresolver.didtoolbox.FfiConverterTypeDidDoc
-import ch.admin.eid.didresolver.didtoolbox.RustBuffer as RustBufferDidDoc
+import ch.admin.eid.didtoolbox.RustBuffer as RustBufferDidDoc
 
 // This is a helper for safely working with byte buffers returned from the Rust code.
 // A rust-owned buffer is represented by its capacity, its current length, and a

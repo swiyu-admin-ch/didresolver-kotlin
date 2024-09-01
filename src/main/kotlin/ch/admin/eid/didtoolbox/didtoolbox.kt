@@ -3,7 +3,7 @@
 
 @file:Suppress("NAME_SHADOWING")
 
-package ch.admin.eid.didresolver.didtoolbox;
+package ch.admin.eid.didtoolbox;
 
 // Common helper code.
 //

@@ -4,8 +4,8 @@ plugins {
 }
 
 group =
- "ch.admin.eid.didresolver"
-version = "0.0.3"
+ "ch.admin.eid"
+version = "0.0.1"
 
 repositories {
     // Use Maven Central for resolving dependencies.
@@ -25,16 +25,16 @@ kotlin {
 publishing {
     publications {
         register<MavenPublication>("gpr") {
-            groupId = "ch.admin.eid.didresolver"
+            groupId = "ch.admin.eid"
             artifactId = "didresolver"
-            version = "0.0.4"
+            version = "0.0.1"
             from(components["kotlin"])
         }
     }
     repositories {
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/admin-ch-ssi/didresolver-kotlin")
+            url = uri("https://maven.pkg.github.com/e-id-admin/didresolver-kotlin")
             credentials {
                 username = project.findProperty("gpr.user") as String? ?: System.getenv("USERNAME")
                 password = project.findProperty("gpr.key") as String? ?: System.getenv("TOKEN")
