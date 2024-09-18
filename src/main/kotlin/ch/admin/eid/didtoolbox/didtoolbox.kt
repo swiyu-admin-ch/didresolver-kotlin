@@ -2147,9 +2147,12 @@ public object FfiConverterTypeTrustDidWebProcessor: FfiConverter<TrustDidWebProc
 
 
 data class Jwk (
-    var `kty`: String, 
-    var `crv`: String, 
-    var `x`: String
+    var `alg`: String?, 
+    var `kid`: String?, 
+    var `kty`: String?, 
+    var `crv`: String?, 
+    var `x`: String?, 
+    var `y`: String?
 ) {
     
     companion object
@@ -2158,22 +2161,31 @@ data class Jwk (
 public object FfiConverterTypeJwk: FfiConverterRustBuffer<Jwk> {
     override fun read(buf: ByteBuffer): Jwk {
         return Jwk(
-            FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
         )
     }
 
     override fun allocationSize(value: Jwk) = (
-            FfiConverterString.allocationSize(value.`kty`) +
-            FfiConverterString.allocationSize(value.`crv`) +
-            FfiConverterString.allocationSize(value.`x`)
+            FfiConverterOptionalString.allocationSize(value.`alg`) +
+            FfiConverterOptionalString.allocationSize(value.`kid`) +
+            FfiConverterOptionalString.allocationSize(value.`kty`) +
+            FfiConverterOptionalString.allocationSize(value.`crv`) +
+            FfiConverterOptionalString.allocationSize(value.`x`) +
+            FfiConverterOptionalString.allocationSize(value.`y`)
     )
 
     override fun write(value: Jwk, buf: ByteBuffer) {
-            FfiConverterString.write(value.`kty`, buf)
-            FfiConverterString.write(value.`crv`, buf)
-            FfiConverterString.write(value.`x`, buf)
+            FfiConverterOptionalString.write(value.`alg`, buf)
+            FfiConverterOptionalString.write(value.`kid`, buf)
+            FfiConverterOptionalString.write(value.`kty`, buf)
+            FfiConverterOptionalString.write(value.`crv`, buf)
+            FfiConverterOptionalString.write(value.`x`, buf)
+            FfiConverterOptionalString.write(value.`y`, buf)
     }
 }
 
