@@ -895,7 +895,7 @@ internal interface UniffiLib : Library {
     ): Pointer
     fun uniffi_didtoolbox_fn_constructor_trustdidweb_deactivate(`didTdw`: RustBuffer.ByValue,`didLog`: RustBuffer.ByValue,`keyPair`: Pointer,`allowHttp`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
-    fun uniffi_didtoolbox_fn_constructor_trustdidweb_read(`scid`: RustBuffer.ByValue,`didLogRaw`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_constructor_trustdidweb_read(`didTdw`: RustBuffer.ByValue,`didLog`: RustBuffer.ByValue,`allowHttp`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
     fun uniffi_didtoolbox_fn_constructor_trustdidweb_update(`didTdw`: RustBuffer.ByValue,`didLog`: RustBuffer.ByValue,`didDoc`: RustBuffer.ByValue,`keyPair`: Pointer,`allowHttp`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
@@ -1205,7 +1205,7 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_didtoolbox_checksum_constructor_trustdidweb_deactivate() != 64336.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_didtoolbox_checksum_constructor_trustdidweb_read() != 52510.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_constructor_trustdidweb_read() != 43492.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_didtoolbox_checksum_constructor_trustdidweb_update() != 29247.toShort()) {
@@ -3298,11 +3298,11 @@ open class TrustDidWeb: Disposable, AutoCloseable, TrustDidWebInterface {
     
 
         
-    @Throws(TrustDidWebException::class) fun `read`(`scid`: kotlin.String, `didLogRaw`: kotlin.String): TrustDidWeb {
+    @Throws(TrustDidWebException::class) fun `read`(`didTdw`: kotlin.String, `didLog`: kotlin.String, `allowHttp`: kotlin.Boolean?): TrustDidWeb {
             return FfiConverterTypeTrustDidWeb.lift(
     uniffiRustCallWithError(TrustDidWebException) { _status ->
     UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_trustdidweb_read(
-        FfiConverterString.lower(`scid`),FfiConverterString.lower(`didLogRaw`),_status)
+        FfiConverterString.lower(`didTdw`),FfiConverterString.lower(`didLog`),FfiConverterOptionalBoolean.lower(`allowHttp`),_status)
 }
     )
     }
