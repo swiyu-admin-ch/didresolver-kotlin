@@ -790,12 +790,6 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
-
-
-
-
-
-
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -891,13 +885,7 @@ internal interface UniffiLib : Library {
     ): Pointer
     fun uniffi_didtoolbox_fn_free_trustdidweb(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_didtoolbox_fn_constructor_trustdidweb_create(`url`: RustBuffer.ByValue,`keyPair`: Pointer,`allowHttp`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Pointer
-    fun uniffi_didtoolbox_fn_constructor_trustdidweb_deactivate(`didTdw`: RustBuffer.ByValue,`didLog`: RustBuffer.ByValue,`keyPair`: Pointer,`allowHttp`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Pointer
     fun uniffi_didtoolbox_fn_constructor_trustdidweb_read(`didTdw`: RustBuffer.ByValue,`didLog`: RustBuffer.ByValue,`allowHttp`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Pointer
-    fun uniffi_didtoolbox_fn_constructor_trustdidweb_update(`didTdw`: RustBuffer.ByValue,`didLog`: RustBuffer.ByValue,`didDoc`: RustBuffer.ByValue,`keyPair`: Pointer,`allowHttp`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
     fun uniffi_didtoolbox_fn_method_trustdidweb_get_did(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -1085,13 +1073,7 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_didtoolbox_checksum_constructor_ed25519verifyingkey_from_multibase(
     ): Short
-    fun uniffi_didtoolbox_checksum_constructor_trustdidweb_create(
-    ): Short
-    fun uniffi_didtoolbox_checksum_constructor_trustdidweb_deactivate(
-    ): Short
     fun uniffi_didtoolbox_checksum_constructor_trustdidweb_read(
-    ): Short
-    fun uniffi_didtoolbox_checksum_constructor_trustdidweb_update(
     ): Short
     fun uniffi_didtoolbox_checksum_constructor_trustdidwebid_parse_did_tdw(
     ): Short
@@ -1199,16 +1181,7 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_didtoolbox_checksum_constructor_ed25519verifyingkey_from_multibase() != 60698.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_didtoolbox_checksum_constructor_trustdidweb_create() != 28893.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_didtoolbox_checksum_constructor_trustdidweb_deactivate() != 64336.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
     if (lib.uniffi_didtoolbox_checksum_constructor_trustdidweb_read() != 43492.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_didtoolbox_checksum_constructor_trustdidweb_update() != 29247.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_didtoolbox_checksum_constructor_trustdidwebid_parse_did_tdw() != 39803.toShort()) {
@@ -3276,44 +3249,11 @@ open class TrustDidWeb: Disposable, AutoCloseable, TrustDidWebInterface {
     
     companion object {
         
-    @Throws(TrustDidWebException::class) fun `create`(`url`: kotlin.String, `keyPair`: Ed25519KeyPair, `allowHttp`: kotlin.Boolean?): TrustDidWeb {
-            return FfiConverterTypeTrustDidWeb.lift(
-    uniffiRustCallWithError(TrustDidWebException) { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_trustdidweb_create(
-        FfiConverterString.lower(`url`),FfiConverterTypeEd25519KeyPair.lower(`keyPair`),FfiConverterOptionalBoolean.lower(`allowHttp`),_status)
-}
-    )
-    }
-    
-
-        
-    @Throws(TrustDidWebException::class) fun `deactivate`(`didTdw`: kotlin.String, `didLog`: kotlin.String, `keyPair`: Ed25519KeyPair, `allowHttp`: kotlin.Boolean?): TrustDidWeb {
-            return FfiConverterTypeTrustDidWeb.lift(
-    uniffiRustCallWithError(TrustDidWebException) { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_trustdidweb_deactivate(
-        FfiConverterString.lower(`didTdw`),FfiConverterString.lower(`didLog`),FfiConverterTypeEd25519KeyPair.lower(`keyPair`),FfiConverterOptionalBoolean.lower(`allowHttp`),_status)
-}
-    )
-    }
-    
-
-        
     @Throws(TrustDidWebException::class) fun `read`(`didTdw`: kotlin.String, `didLog`: kotlin.String, `allowHttp`: kotlin.Boolean?): TrustDidWeb {
             return FfiConverterTypeTrustDidWeb.lift(
     uniffiRustCallWithError(TrustDidWebException) { _status ->
     UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_trustdidweb_read(
         FfiConverterString.lower(`didTdw`),FfiConverterString.lower(`didLog`),FfiConverterOptionalBoolean.lower(`allowHttp`),_status)
-}
-    )
-    }
-    
-
-        
-    @Throws(TrustDidWebException::class) fun `update`(`didTdw`: kotlin.String, `didLog`: kotlin.String, `didDoc`: kotlin.String, `keyPair`: Ed25519KeyPair, `allowHttp`: kotlin.Boolean?): TrustDidWeb {
-            return FfiConverterTypeTrustDidWeb.lift(
-    uniffiRustCallWithError(TrustDidWebException) { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_trustdidweb_update(
-        FfiConverterString.lower(`didTdw`),FfiConverterString.lower(`didLog`),FfiConverterString.lower(`didDoc`),FfiConverterTypeEd25519KeyPair.lower(`keyPair`),FfiConverterOptionalBoolean.lower(`allowHttp`),_status)
 }
     )
     }
@@ -3695,7 +3635,7 @@ public object FfiConverterTypeJwk: FfiConverterRustBuffer<Jwk> {
 data class VerificationMethod (
     var `id`: kotlin.String, 
     var `controller`: kotlin.String, 
-    var `verificationType`: kotlin.String, 
+    var `verificationType`: VerificationType, 
     var `publicKeyMultibase`: kotlin.String?, 
     var `publicKeyJwk`: Jwk?
 ) {
@@ -3711,7 +3651,7 @@ public object FfiConverterTypeVerificationMethod: FfiConverterRustBuffer<Verific
         return VerificationMethod(
             FfiConverterString.read(buf),
             FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
+            FfiConverterTypeVerificationType.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalTypeJwk.read(buf),
         )
@@ -3720,7 +3660,7 @@ public object FfiConverterTypeVerificationMethod: FfiConverterRustBuffer<Verific
     override fun allocationSize(value: VerificationMethod) = (
             FfiConverterString.allocationSize(value.`id`) +
             FfiConverterString.allocationSize(value.`controller`) +
-            FfiConverterString.allocationSize(value.`verificationType`) +
+            FfiConverterTypeVerificationType.allocationSize(value.`verificationType`) +
             FfiConverterOptionalString.allocationSize(value.`publicKeyMultibase`) +
             FfiConverterOptionalTypeJwk.allocationSize(value.`publicKeyJwk`)
     )
@@ -3728,7 +3668,7 @@ public object FfiConverterTypeVerificationMethod: FfiConverterRustBuffer<Verific
     override fun write(value: VerificationMethod, buf: ByteBuffer) {
             FfiConverterString.write(value.`id`, buf)
             FfiConverterString.write(value.`controller`, buf)
-            FfiConverterString.write(value.`verificationType`, buf)
+            FfiConverterTypeVerificationType.write(value.`verificationType`, buf)
             FfiConverterOptionalString.write(value.`publicKeyMultibase`, buf)
             FfiConverterOptionalTypeJwk.write(value.`publicKeyJwk`, buf)
     }
@@ -3881,6 +3821,37 @@ public object FfiConverterTypeTrustDidWebIdResolutionError : FfiConverterRustBuf
     }
 
 }
+
+
+
+
+enum class VerificationType {
+    
+    MULTIKEY,
+    JSON_WEB_KEY2020,
+    ED25519_VERIFICATION_KEY2020;
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeVerificationType: FfiConverterRustBuffer<VerificationType> {
+    override fun read(buf: ByteBuffer) = try {
+        VerificationType.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: VerificationType) = 4UL
+
+    override fun write(value: VerificationType, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
 
 
 
