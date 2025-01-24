@@ -50,7 +50,7 @@ open class RustBuffer : Structure() {
     class ByValue: RustBuffer(), Structure.ByValue
     class ByReference: RustBuffer(), Structure.ByReference
 
-   internal fun setValue(other: RustBuffer) {
+    internal fun setValue(other: RustBuffer) {
         capacity = other.capacity
         len = other.len
         data = other.data
@@ -62,8 +62,8 @@ open class RustBuffer : Structure() {
             UniffiLib.INSTANCE.ffi_didtoolbox_rustbuffer_alloc(size.toLong(), status)
         }.also {
             if(it.data == null) {
-               throw RuntimeException("RustBuffer.alloc() returned null data pointer (size=${size})")
-           }
+                throw RuntimeException("RustBuffer.alloc() returned null data pointer (size=${size})")
+            }
         }
 
         internal fun create(capacity: ULong, len: ULong, data: Pointer?): RustBuffer.ByValue {
@@ -192,11 +192,11 @@ public interface FfiConverter<KotlinType, FfiType> {
     fun liftFromRustBuffer(rbuf: RustBuffer.ByValue): KotlinType {
         val byteBuf = rbuf.asByteBuffer()!!
         try {
-           val item = read(byteBuf)
-           if (byteBuf.hasRemaining()) {
-               throw RuntimeException("junk remaining in buffer after lifting, something is very wrong!!")
-           }
-           return item
+            val item = read(byteBuf)
+            if (byteBuf.hasRemaining()) {
+                throw RuntimeException("junk remaining in buffer after lifting, something is very wrong!!")
+            }
+            return item
         } finally {
             RustBuffer.free(rbuf)
         }
@@ -404,7 +404,7 @@ internal open class UniffiForeignFuture(
         `free`: UniffiForeignFutureFree? = null,
     ): UniffiForeignFuture(`handle`,`free`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFuture) {
+    internal fun uniffiSetValue(other: UniffiForeignFuture) {
         `handle` = other.`handle`
         `free` = other.`free`
     }
@@ -420,7 +420,7 @@ internal open class UniffiForeignFutureStructU8(
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
     ): UniffiForeignFutureStructU8(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructU8) {
+    internal fun uniffiSetValue(other: UniffiForeignFutureStructU8) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
@@ -439,7 +439,7 @@ internal open class UniffiForeignFutureStructI8(
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
     ): UniffiForeignFutureStructI8(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructI8) {
+    internal fun uniffiSetValue(other: UniffiForeignFutureStructI8) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
@@ -458,7 +458,7 @@ internal open class UniffiForeignFutureStructU16(
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
     ): UniffiForeignFutureStructU16(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructU16) {
+    internal fun uniffiSetValue(other: UniffiForeignFutureStructU16) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
@@ -477,7 +477,7 @@ internal open class UniffiForeignFutureStructI16(
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
     ): UniffiForeignFutureStructI16(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructI16) {
+    internal fun uniffiSetValue(other: UniffiForeignFutureStructI16) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
@@ -496,7 +496,7 @@ internal open class UniffiForeignFutureStructU32(
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
     ): UniffiForeignFutureStructU32(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructU32) {
+    internal fun uniffiSetValue(other: UniffiForeignFutureStructU32) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
@@ -515,7 +515,7 @@ internal open class UniffiForeignFutureStructI32(
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
     ): UniffiForeignFutureStructI32(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructI32) {
+    internal fun uniffiSetValue(other: UniffiForeignFutureStructI32) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
@@ -534,7 +534,7 @@ internal open class UniffiForeignFutureStructU64(
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
     ): UniffiForeignFutureStructU64(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructU64) {
+    internal fun uniffiSetValue(other: UniffiForeignFutureStructU64) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
@@ -553,7 +553,7 @@ internal open class UniffiForeignFutureStructI64(
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
     ): UniffiForeignFutureStructI64(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructI64) {
+    internal fun uniffiSetValue(other: UniffiForeignFutureStructI64) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
@@ -572,7 +572,7 @@ internal open class UniffiForeignFutureStructF32(
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
     ): UniffiForeignFutureStructF32(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructF32) {
+    internal fun uniffiSetValue(other: UniffiForeignFutureStructF32) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
@@ -591,7 +591,7 @@ internal open class UniffiForeignFutureStructF64(
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
     ): UniffiForeignFutureStructF64(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructF64) {
+    internal fun uniffiSetValue(other: UniffiForeignFutureStructF64) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
@@ -610,7 +610,7 @@ internal open class UniffiForeignFutureStructPointer(
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
     ): UniffiForeignFutureStructPointer(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructPointer) {
+    internal fun uniffiSetValue(other: UniffiForeignFutureStructPointer) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
@@ -629,7 +629,7 @@ internal open class UniffiForeignFutureStructRustBuffer(
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
     ): UniffiForeignFutureStructRustBuffer(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructRustBuffer) {
+    internal fun uniffiSetValue(other: UniffiForeignFutureStructRustBuffer) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
@@ -646,7 +646,7 @@ internal open class UniffiForeignFutureStructVoid(
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
     ): UniffiForeignFutureStructVoid(`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructVoid) {
+    internal fun uniffiSetValue(other: UniffiForeignFutureStructVoid) {
         `callStatus` = other.`callStatus`
     }
 
@@ -797,119 +797,119 @@ internal interface UniffiLib : Library {
     companion object {
         internal val INSTANCE: UniffiLib by lazy {
             loadIndirect<UniffiLib>(componentName = "didtoolbox")
-            .also { lib: UniffiLib ->
-                uniffiCheckContractApiVersion(lib)
-                uniffiCheckApiChecksums(lib)
+                .also { lib: UniffiLib ->
+                    uniffiCheckContractApiVersion(lib)
+                    uniffiCheckApiChecksums(lib)
                 }
         }
-        
+
         // The Cleaner for the whole library
         internal val CLEANER: UniffiCleaner by lazy {
             UniffiCleaner.create()
         }
     }
 
-    fun uniffi_didtoolbox_fn_clone_diddoc(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_clone_diddoc(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_free_diddoc(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_free_diddoc(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
-    fun uniffi_didtoolbox_fn_constructor_diddoc_from_json(`jsonContent`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_constructor_diddoc_from_json(`jsonContent`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_method_diddoc_get_assertion_method(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_diddoc_get_assertion_method(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun uniffi_didtoolbox_fn_method_diddoc_get_authentication(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_diddoc_get_authentication(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun uniffi_didtoolbox_fn_method_diddoc_get_capability_delegation(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_diddoc_get_capability_delegation(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun uniffi_didtoolbox_fn_method_diddoc_get_capability_invocation(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_diddoc_get_capability_invocation(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun uniffi_didtoolbox_fn_method_diddoc_get_context(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_diddoc_get_context(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun uniffi_didtoolbox_fn_method_diddoc_get_controller(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_diddoc_get_controller(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun uniffi_didtoolbox_fn_method_diddoc_get_deactivated(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_diddoc_get_deactivated(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Byte
-    fun uniffi_didtoolbox_fn_method_diddoc_get_id(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_diddoc_get_id(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun uniffi_didtoolbox_fn_method_diddoc_get_verification_method(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_diddoc_get_verification_method(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun uniffi_didtoolbox_fn_clone_diddocumentstate(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_clone_diddocumentstate(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_free_diddocumentstate(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_free_diddocumentstate(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
-    fun uniffi_didtoolbox_fn_constructor_diddocumentstate_from(`didLog`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_constructor_diddocumentstate_from(`didLog`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_method_diddocumentstate_validate(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_diddocumentstate_validate(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_method_diddocumentstate_validate_with_scid(`ptr`: Pointer,`scid`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_diddocumentstate_validate_with_scid(`ptr`: Pointer,`scid`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_clone_ed25519keypair(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_clone_ed25519keypair(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_free_ed25519keypair(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_free_ed25519keypair(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
-    fun uniffi_didtoolbox_fn_constructor_ed25519keypair_from(`signingKeyMultibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_constructor_ed25519keypair_from(`signingKeyMultibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_constructor_ed25519keypair_generate(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_constructor_ed25519keypair_generate(uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_method_ed25519keypair_get_signing_key(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_ed25519keypair_get_signing_key(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_method_ed25519keypair_get_verifying_key(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_ed25519keypair_get_verifying_key(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_method_ed25519keypair_sign(`ptr`: Pointer,`message`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_ed25519keypair_sign(`ptr`: Pointer,`message`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_clone_ed25519signature(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_clone_ed25519signature(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_free_ed25519signature(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_free_ed25519signature(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
-    fun uniffi_didtoolbox_fn_constructor_ed25519signature_from_multibase(`multibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_constructor_ed25519signature_from_multibase(`multibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_method_ed25519signature_to_multibase(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_ed25519signature_to_multibase(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun uniffi_didtoolbox_fn_clone_ed25519signingkey(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_clone_ed25519signingkey(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_free_ed25519signingkey(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_free_ed25519signingkey(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
-    fun uniffi_didtoolbox_fn_constructor_ed25519signingkey_from_multibase(`multibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_constructor_ed25519signingkey_from_multibase(`multibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_method_ed25519signingkey_to_multibase(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_ed25519signingkey_to_multibase(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun uniffi_didtoolbox_fn_clone_ed25519verifyingkey(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_clone_ed25519verifyingkey(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_free_ed25519verifyingkey(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_free_ed25519verifyingkey(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
-    fun uniffi_didtoolbox_fn_constructor_ed25519verifyingkey_from_multibase(`multibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_constructor_ed25519verifyingkey_from_multibase(`multibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_method_ed25519verifyingkey_to_multibase(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_ed25519verifyingkey_to_multibase(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun uniffi_didtoolbox_fn_clone_trustdidweb(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_clone_trustdidweb(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_free_trustdidweb(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_free_trustdidweb(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
-    fun uniffi_didtoolbox_fn_constructor_trustdidweb_read(`didTdw`: RustBuffer.ByValue,`didLog`: RustBuffer.ByValue,`allowHttp`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_constructor_trustdidweb_read(`didTdw`: RustBuffer.ByValue,`didLog`: RustBuffer.ByValue,`allowHttp`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_method_trustdidweb_get_did(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_trustdidweb_get_did(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun uniffi_didtoolbox_fn_method_trustdidweb_get_did_doc(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_trustdidweb_get_did_doc(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun uniffi_didtoolbox_fn_method_trustdidweb_get_did_log(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_trustdidweb_get_did_log(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun uniffi_didtoolbox_fn_clone_trustdidwebid(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_clone_trustdidwebid(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_free_trustdidwebid(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_free_trustdidwebid(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
-    fun uniffi_didtoolbox_fn_constructor_trustdidwebid_parse_did_tdw(`didTdw`: RustBuffer.ByValue,`allowHttp`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_constructor_trustdidwebid_parse_did_tdw(`didTdw`: RustBuffer.ByValue,`allowHttp`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
-    fun uniffi_didtoolbox_fn_method_trustdidwebid_get_scid(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_trustdidwebid_get_scid(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun uniffi_didtoolbox_fn_method_trustdidwebid_get_url(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_didtoolbox_fn_method_trustdidwebid_get_url(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun ffi_didtoolbox_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun ffi_didtoolbox_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    fun ffi_didtoolbox_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
-    fun ffi_didtoolbox_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
     fun ffi_didtoolbox_rust_future_poll_u8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -917,7 +917,7 @@ internal interface UniffiLib : Library {
     ): Unit
     fun ffi_didtoolbox_rust_future_free_u8(`handle`: Long,
     ): Unit
-    fun ffi_didtoolbox_rust_future_complete_u8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_u8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Byte
     fun ffi_didtoolbox_rust_future_poll_i8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -925,7 +925,7 @@ internal interface UniffiLib : Library {
     ): Unit
     fun ffi_didtoolbox_rust_future_free_i8(`handle`: Long,
     ): Unit
-    fun ffi_didtoolbox_rust_future_complete_i8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_i8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Byte
     fun ffi_didtoolbox_rust_future_poll_u16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -933,7 +933,7 @@ internal interface UniffiLib : Library {
     ): Unit
     fun ffi_didtoolbox_rust_future_free_u16(`handle`: Long,
     ): Unit
-    fun ffi_didtoolbox_rust_future_complete_u16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_u16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Short
     fun ffi_didtoolbox_rust_future_poll_i16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -941,7 +941,7 @@ internal interface UniffiLib : Library {
     ): Unit
     fun ffi_didtoolbox_rust_future_free_i16(`handle`: Long,
     ): Unit
-    fun ffi_didtoolbox_rust_future_complete_i16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_i16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Short
     fun ffi_didtoolbox_rust_future_poll_u32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -949,7 +949,7 @@ internal interface UniffiLib : Library {
     ): Unit
     fun ffi_didtoolbox_rust_future_free_u32(`handle`: Long,
     ): Unit
-    fun ffi_didtoolbox_rust_future_complete_u32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_u32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Int
     fun ffi_didtoolbox_rust_future_poll_i32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -957,7 +957,7 @@ internal interface UniffiLib : Library {
     ): Unit
     fun ffi_didtoolbox_rust_future_free_i32(`handle`: Long,
     ): Unit
-    fun ffi_didtoolbox_rust_future_complete_i32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_i32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Int
     fun ffi_didtoolbox_rust_future_poll_u64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -965,7 +965,7 @@ internal interface UniffiLib : Library {
     ): Unit
     fun ffi_didtoolbox_rust_future_free_u64(`handle`: Long,
     ): Unit
-    fun ffi_didtoolbox_rust_future_complete_u64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_u64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Long
     fun ffi_didtoolbox_rust_future_poll_i64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -973,7 +973,7 @@ internal interface UniffiLib : Library {
     ): Unit
     fun ffi_didtoolbox_rust_future_free_i64(`handle`: Long,
     ): Unit
-    fun ffi_didtoolbox_rust_future_complete_i64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_i64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Long
     fun ffi_didtoolbox_rust_future_poll_f32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -981,7 +981,7 @@ internal interface UniffiLib : Library {
     ): Unit
     fun ffi_didtoolbox_rust_future_free_f32(`handle`: Long,
     ): Unit
-    fun ffi_didtoolbox_rust_future_complete_f32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_f32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Float
     fun ffi_didtoolbox_rust_future_poll_f64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -989,7 +989,7 @@ internal interface UniffiLib : Library {
     ): Unit
     fun ffi_didtoolbox_rust_future_free_f64(`handle`: Long,
     ): Unit
-    fun ffi_didtoolbox_rust_future_complete_f64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_f64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Double
     fun ffi_didtoolbox_rust_future_poll_pointer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -997,7 +997,7 @@ internal interface UniffiLib : Library {
     ): Unit
     fun ffi_didtoolbox_rust_future_free_pointer(`handle`: Long,
     ): Unit
-    fun ffi_didtoolbox_rust_future_complete_pointer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_pointer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Pointer
     fun ffi_didtoolbox_rust_future_poll_rust_buffer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -1005,7 +1005,7 @@ internal interface UniffiLib : Library {
     ): Unit
     fun ffi_didtoolbox_rust_future_free_rust_buffer(`handle`: Long,
     ): Unit
-    fun ffi_didtoolbox_rust_future_complete_rust_buffer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_rust_buffer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
     fun ffi_didtoolbox_rust_future_poll_void(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -1013,7 +1013,7 @@ internal interface UniffiLib : Library {
     ): Unit
     fun ffi_didtoolbox_rust_future_free_void(`handle`: Long,
     ): Unit
-    fun ffi_didtoolbox_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_didtoolbox_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
     fun uniffi_didtoolbox_checksum_method_diddoc_get_assertion_method(
     ): Short
@@ -1079,7 +1079,7 @@ internal interface UniffiLib : Library {
     ): Short
     fun ffi_didtoolbox_uniffi_contract_version(
     ): Int
-    
+
 }
 
 private fun uniffiCheckContractApiVersion(lib: UniffiLib) {
@@ -1121,10 +1121,10 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_didtoolbox_checksum_method_diddoc_get_verification_method() != 46020.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_didtoolbox_checksum_method_diddocumentstate_validate() != 4769.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_method_diddocumentstate_validate() != 13040.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_didtoolbox_checksum_method_diddocumentstate_validate_with_scid() != 46799.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_method_diddocumentstate_validate_with_scid() != 12771.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_didtoolbox_checksum_method_ed25519keypair_get_signing_key() != 65401.toShort()) {
@@ -1160,25 +1160,25 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_didtoolbox_checksum_method_trustdidwebid_get_url() != 17624.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_didtoolbox_checksum_constructor_diddoc_from_json() != 4545.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_constructor_diddoc_from_json() != 11336.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_didtoolbox_checksum_constructor_diddocumentstate_from() != 48250.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_constructor_diddocumentstate_from() != 16384.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_didtoolbox_checksum_constructor_ed25519keypair_from() != 61053.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_constructor_ed25519keypair_from() != 7785.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_didtoolbox_checksum_constructor_ed25519keypair_generate() != 54771.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_didtoolbox_checksum_constructor_ed25519signature_from_multibase() != 34889.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_constructor_ed25519signature_from_multibase() != 26554.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_didtoolbox_checksum_constructor_ed25519signingkey_from_multibase() != 44078.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_constructor_ed25519signingkey_from_multibase() != 935.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_didtoolbox_checksum_constructor_ed25519verifyingkey_from_multibase() != 60698.toShort()) {
+    if (lib.uniffi_didtoolbox_checksum_constructor_ed25519verifyingkey_from_multibase() != 9783.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_didtoolbox_checksum_constructor_trustdidweb_read() != 43492.toShort()) {
@@ -1227,7 +1227,7 @@ inline fun <T : Disposable?, R> T.use(block: (T) -> R) =
         }
     }
 
-/** 
+/**
  * Used to instantiate an interface without an actual pointer, for fakes in tests, mostly.
  *
  * @suppress
@@ -1477,25 +1477,25 @@ private class JavaLangRefCleanable(
     override fun clean() = cleanable.clean()
 }
 public interface DidDocInterface {
-    
+
     fun `getAssertionMethod`(): List<VerificationMethod>
-    
+
     fun `getAuthentication`(): List<VerificationMethod>
-    
+
     fun `getCapabilityDelegation`(): List<VerificationMethod>
-    
+
     fun `getCapabilityInvocation`(): List<VerificationMethod>
-    
+
     fun `getContext`(): List<kotlin.String>
-    
+
     fun `getController`(): List<kotlin.String>
-    
+
     fun `getDeactivated`(): kotlin.Boolean
-    
+
     fun `getId`(): kotlin.String
-    
+
     fun `getVerificationMethod`(): List<VerificationMethod>
-    
+
     companion object
 }
 
@@ -1581,130 +1581,131 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface {
     }
 
     override fun `getAssertionMethod`(): List<VerificationMethod> {
-            return FfiConverterSequenceTypeVerificationMethod.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_assertion_method(
-        it, _status)
-}
+        return FfiConverterSequenceTypeVerificationMethod.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_assertion_method(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
+
 
     override fun `getAuthentication`(): List<VerificationMethod> {
-            return FfiConverterSequenceTypeVerificationMethod.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_authentication(
-        it, _status)
-}
+        return FfiConverterSequenceTypeVerificationMethod.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_authentication(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
+
 
     override fun `getCapabilityDelegation`(): List<VerificationMethod> {
-            return FfiConverterSequenceTypeVerificationMethod.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_capability_delegation(
-        it, _status)
-}
+        return FfiConverterSequenceTypeVerificationMethod.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_capability_delegation(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
+
 
     override fun `getCapabilityInvocation`(): List<VerificationMethod> {
-            return FfiConverterSequenceTypeVerificationMethod.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_capability_invocation(
-        it, _status)
-}
+        return FfiConverterSequenceTypeVerificationMethod.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_capability_invocation(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
+
 
     override fun `getContext`(): List<kotlin.String> {
-            return FfiConverterSequenceString.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_context(
-        it, _status)
-}
+        return FfiConverterSequenceString.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_context(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
+
 
     override fun `getController`(): List<kotlin.String> {
-            return FfiConverterSequenceString.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_controller(
-        it, _status)
-}
+        return FfiConverterSequenceString.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_controller(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
+
 
     override fun `getDeactivated`(): kotlin.Boolean {
-            return FfiConverterBoolean.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_deactivated(
-        it, _status)
-}
+        return FfiConverterBoolean.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_deactivated(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
+
 
     override fun `getId`(): kotlin.String {
-            return FfiConverterString.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_id(
-        it, _status)
-}
+        return FfiConverterString.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_id(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
+
 
     override fun `getVerificationMethod`(): List<VerificationMethod> {
-            return FfiConverterSequenceTypeVerificationMethod.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_verification_method(
-        it, _status)
-}
+        return FfiConverterSequenceTypeVerificationMethod.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddoc_get_verification_method(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
 
-    
 
-    
+
+
+
     companion object {
-         fun `fromJson`(`jsonContent`: kotlin.String): DidDoc {
-            return FfiConverterTypeDidDoc.lift(
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_diddoc_from_json(
-        FfiConverterString.lower(`jsonContent`),_status)
-}
-    )
-    }
-    
 
-        
+        @Throws(TrustDidWebException::class) fun `fromJson`(`jsonContent`: kotlin.String): DidDoc {
+            return FfiConverterTypeDidDoc.lift(
+                uniffiRustCallWithError(TrustDidWebException) { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_diddoc_from_json(
+                        FfiConverterString.lower(`jsonContent`),_status)
+                }
+            )
+        }
+
+
+
     }
-    
+
 }
 
 /**
@@ -1835,11 +1836,11 @@ public object FfiConverterTypeDidDoc: FfiConverter<DidDoc, Pointer> {
 
 
 public interface DidDocumentStateInterface {
-    
+
     fun `validate`(): DidDoc
-    
+
     fun `validateWithScid`(`scid`: kotlin.String?): DidDoc
-    
+
     companion object
 }
 
@@ -1924,47 +1925,50 @@ open class DidDocumentState: Disposable, AutoCloseable, DidDocumentStateInterfac
         }
     }
 
-    override fun `validate`(): DidDoc {
-            return FfiConverterTypeDidDoc.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddocumentstate_validate(
-        it, _status)
-}
-    }
-    )
-    }
-    
 
-    override fun `validateWithScid`(`scid`: kotlin.String?): DidDoc {
-            return FfiConverterTypeDidDoc.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddocumentstate_validate_with_scid(
-        it, FfiConverterOptionalString.lower(`scid`),_status)
-}
+    @Throws(TrustDidWebException::class)override fun `validate`(): DidDoc {
+        return FfiConverterTypeDidDoc.lift(
+            callWithPointer {
+                uniffiRustCallWithError(TrustDidWebException) { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddocumentstate_validate(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
+
+
+
+    @Throws(TrustDidWebException::class)override fun `validateWithScid`(`scid`: kotlin.String?): DidDoc {
+        return FfiConverterTypeDidDoc.lift(
+            callWithPointer {
+                uniffiRustCallWithError(TrustDidWebException) { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_diddocumentstate_validate_with_scid(
+                        it, FfiConverterOptionalString.lower(`scid`),_status)
+                }
+            }
+        )
     }
-    
 
-    
 
-    
+
+
+
     companion object {
-         fun `from`(`didLog`: kotlin.String): DidDocumentState {
-            return FfiConverterTypeDidDocumentState.lift(
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_diddocumentstate_from(
-        FfiConverterString.lower(`didLog`),_status)
-}
-    )
-    }
-    
 
-        
+        @Throws(TrustDidWebException::class) fun `from`(`didLog`: kotlin.String): DidDocumentState {
+            return FfiConverterTypeDidDocumentState.lift(
+                uniffiRustCallWithError(TrustDidWebException) { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_diddocumentstate_from(
+                        FfiConverterString.lower(`didLog`),_status)
+                }
+            )
+        }
+
+
+
     }
-    
+
 }
 
 /**
@@ -2095,13 +2099,13 @@ public object FfiConverterTypeDidDocumentState: FfiConverter<DidDocumentState, P
 
 
 public interface Ed25519KeyPairInterface {
-    
+
     fun `getSigningKey`(): Ed25519SigningKey
-    
+
     fun `getVerifyingKey`(): Ed25519VerifyingKey
-    
+
     fun `sign`(`message`: kotlin.String): Ed25519Signature
-    
+
     companion object
 }
 
@@ -2187,68 +2191,69 @@ open class Ed25519KeyPair: Disposable, AutoCloseable, Ed25519KeyPairInterface {
     }
 
     override fun `getSigningKey`(): Ed25519SigningKey {
-            return FfiConverterTypeEd25519SigningKey.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519keypair_get_signing_key(
-        it, _status)
-}
+        return FfiConverterTypeEd25519SigningKey.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519keypair_get_signing_key(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
+
 
     override fun `getVerifyingKey`(): Ed25519VerifyingKey {
-            return FfiConverterTypeEd25519VerifyingKey.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519keypair_get_verifying_key(
-        it, _status)
-}
+        return FfiConverterTypeEd25519VerifyingKey.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519keypair_get_verifying_key(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
+
 
     override fun `sign`(`message`: kotlin.String): Ed25519Signature {
-            return FfiConverterTypeEd25519Signature.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519keypair_sign(
-        it, FfiConverterString.lower(`message`),_status)
-}
+        return FfiConverterTypeEd25519Signature.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519keypair_sign(
+                        it, FfiConverterString.lower(`message`),_status)
+                }
+            }
+        )
     }
-    )
-    }
-    
 
-    
 
-    
+
+
+
     companion object {
-         fun `from`(`signingKeyMultibase`: kotlin.String): Ed25519KeyPair {
-            return FfiConverterTypeEd25519KeyPair.lift(
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_ed25519keypair_from(
-        FfiConverterString.lower(`signingKeyMultibase`),_status)
-}
-    )
-    }
-    
 
-         fun `generate`(): Ed25519KeyPair {
+        @Throws(TrustDidWebException::class) fun `from`(`signingKeyMultibase`: kotlin.String): Ed25519KeyPair {
             return FfiConverterTypeEd25519KeyPair.lift(
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_ed25519keypair_generate(
-        _status)
-}
-    )
-    }
-    
+                uniffiRustCallWithError(TrustDidWebException) { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_ed25519keypair_from(
+                        FfiConverterString.lower(`signingKeyMultibase`),_status)
+                }
+            )
+        }
 
-        
+
+        fun `generate`(): Ed25519KeyPair {
+            return FfiConverterTypeEd25519KeyPair.lift(
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_ed25519keypair_generate(
+                        _status)
+                }
+            )
+        }
+
+
+
     }
-    
+
 }
 
 /**
@@ -2379,9 +2384,9 @@ public object FfiConverterTypeEd25519KeyPair: FfiConverter<Ed25519KeyPair, Point
 
 
 public interface Ed25519SignatureInterface {
-    
+
     fun `toMultibase`(): kotlin.String
-    
+
     companion object
 }
 
@@ -2467,34 +2472,35 @@ open class Ed25519Signature: Disposable, AutoCloseable, Ed25519SignatureInterfac
     }
 
     override fun `toMultibase`(): kotlin.String {
-            return FfiConverterString.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519signature_to_multibase(
-        it, _status)
-}
+        return FfiConverterString.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519signature_to_multibase(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
 
-    
 
-    
+
+
+
     companion object {
-         fun `fromMultibase`(`multibase`: kotlin.String): Ed25519Signature {
-            return FfiConverterTypeEd25519Signature.lift(
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_ed25519signature_from_multibase(
-        FfiConverterString.lower(`multibase`),_status)
-}
-    )
-    }
-    
 
-        
+        @Throws(TrustDidWebException::class) fun `fromMultibase`(`multibase`: kotlin.String): Ed25519Signature {
+            return FfiConverterTypeEd25519Signature.lift(
+                uniffiRustCallWithError(TrustDidWebException) { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_ed25519signature_from_multibase(
+                        FfiConverterString.lower(`multibase`),_status)
+                }
+            )
+        }
+
+
+
     }
-    
+
 }
 
 /**
@@ -2625,9 +2631,9 @@ public object FfiConverterTypeEd25519Signature: FfiConverter<Ed25519Signature, P
 
 
 public interface Ed25519SigningKeyInterface {
-    
+
     fun `toMultibase`(): kotlin.String
-    
+
     companion object
 }
 
@@ -2713,34 +2719,35 @@ open class Ed25519SigningKey: Disposable, AutoCloseable, Ed25519SigningKeyInterf
     }
 
     override fun `toMultibase`(): kotlin.String {
-            return FfiConverterString.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519signingkey_to_multibase(
-        it, _status)
-}
+        return FfiConverterString.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519signingkey_to_multibase(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
 
-    
 
-    
+
+
+
     companion object {
-         fun `fromMultibase`(`multibase`: kotlin.String): Ed25519SigningKey {
-            return FfiConverterTypeEd25519SigningKey.lift(
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_ed25519signingkey_from_multibase(
-        FfiConverterString.lower(`multibase`),_status)
-}
-    )
-    }
-    
 
-        
+        @Throws(TrustDidWebException::class) fun `fromMultibase`(`multibase`: kotlin.String): Ed25519SigningKey {
+            return FfiConverterTypeEd25519SigningKey.lift(
+                uniffiRustCallWithError(TrustDidWebException) { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_ed25519signingkey_from_multibase(
+                        FfiConverterString.lower(`multibase`),_status)
+                }
+            )
+        }
+
+
+
     }
-    
+
 }
 
 /**
@@ -2871,9 +2878,9 @@ public object FfiConverterTypeEd25519SigningKey: FfiConverter<Ed25519SigningKey,
 
 
 public interface Ed25519VerifyingKeyInterface {
-    
+
     fun `toMultibase`(): kotlin.String
-    
+
     companion object
 }
 
@@ -2959,34 +2966,35 @@ open class Ed25519VerifyingKey: Disposable, AutoCloseable, Ed25519VerifyingKeyIn
     }
 
     override fun `toMultibase`(): kotlin.String {
-            return FfiConverterString.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519verifyingkey_to_multibase(
-        it, _status)
-}
+        return FfiConverterString.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_ed25519verifyingkey_to_multibase(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
 
-    
 
-    
+
+
+
     companion object {
-         fun `fromMultibase`(`multibase`: kotlin.String): Ed25519VerifyingKey {
-            return FfiConverterTypeEd25519VerifyingKey.lift(
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_ed25519verifyingkey_from_multibase(
-        FfiConverterString.lower(`multibase`),_status)
-}
-    )
-    }
-    
 
-        
+        @Throws(TrustDidWebException::class) fun `fromMultibase`(`multibase`: kotlin.String): Ed25519VerifyingKey {
+            return FfiConverterTypeEd25519VerifyingKey.lift(
+                uniffiRustCallWithError(TrustDidWebException) { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_ed25519verifyingkey_from_multibase(
+                        FfiConverterString.lower(`multibase`),_status)
+                }
+            )
+        }
+
+
+
     }
-    
+
 }
 
 /**
@@ -3117,13 +3125,13 @@ public object FfiConverterTypeEd25519VerifyingKey: FfiConverter<Ed25519Verifying
 
 
 public interface TrustDidWebInterface {
-    
+
     fun `getDid`(): kotlin.String
-    
+
     fun `getDidDoc`(): kotlin.String
-    
+
     fun `getDidLog`(): kotlin.String
-    
+
     companion object
 }
 
@@ -3209,59 +3217,59 @@ open class TrustDidWeb: Disposable, AutoCloseable, TrustDidWebInterface {
     }
 
     override fun `getDid`(): kotlin.String {
-            return FfiConverterString.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_trustdidweb_get_did(
-        it, _status)
-}
+        return FfiConverterString.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_trustdidweb_get_did(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
+
 
     override fun `getDidDoc`(): kotlin.String {
-            return FfiConverterString.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_trustdidweb_get_did_doc(
-        it, _status)
-}
+        return FfiConverterString.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_trustdidweb_get_did_doc(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
+
 
     override fun `getDidLog`(): kotlin.String {
-            return FfiConverterString.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_trustdidweb_get_did_log(
-        it, _status)
-}
+        return FfiConverterString.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_trustdidweb_get_did_log(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
 
-    
 
-    
+
+
+
     companion object {
-        
-    @Throws(TrustDidWebException::class) fun `read`(`didTdw`: kotlin.String, `didLog`: kotlin.String, `allowHttp`: kotlin.Boolean?): TrustDidWeb {
-            return FfiConverterTypeTrustDidWeb.lift(
-    uniffiRustCallWithError(TrustDidWebException) { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_trustdidweb_read(
-        FfiConverterString.lower(`didTdw`),FfiConverterString.lower(`didLog`),FfiConverterOptionalBoolean.lower(`allowHttp`),_status)
-}
-    )
-    }
-    
 
-        
+        @Throws(TrustDidWebException::class) fun `read`(`didTdw`: kotlin.String, `didLog`: kotlin.String, `allowHttp`: kotlin.Boolean?): TrustDidWeb {
+            return FfiConverterTypeTrustDidWeb.lift(
+                uniffiRustCallWithError(TrustDidWebException) { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_trustdidweb_read(
+                        FfiConverterString.lower(`didTdw`),FfiConverterString.lower(`didLog`),FfiConverterOptionalBoolean.lower(`allowHttp`),_status)
+                }
+            )
+        }
+
+
+
     }
-    
+
 }
 
 /**
@@ -3398,17 +3406,17 @@ public object FfiConverterTypeTrustDidWeb: FfiConverter<TrustDidWeb, Pointer> {
  * and a fully qualified domain name (with an optional path) that is secured by a TLS/SSL certificate."
  */
 public interface TrustDidWebIdInterface {
-    
+
     /**
      * Returns the SCID part from the supplied DID.
      */
     fun `getScid`(): kotlin.String
-    
+
     /**
      * Returns the url part from the supplied TDW DID.
      */
     fun `getUrl`(): kotlin.String
-    
+
     companion object
 }
 
@@ -3499,59 +3507,59 @@ open class TrustDidWebId: Disposable, AutoCloseable, TrustDidWebIdInterface {
         }
     }
 
-    
+
     /**
      * Returns the SCID part from the supplied DID.
      */override fun `getScid`(): kotlin.String {
-            return FfiConverterString.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_trustdidwebid_get_scid(
-        it, _status)
-}
+        return FfiConverterString.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_trustdidwebid_get_scid(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
 
-    
+
+
     /**
      * Returns the url part from the supplied TDW DID.
      */override fun `getUrl`(): kotlin.String {
-            return FfiConverterString.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_trustdidwebid_get_url(
-        it, _status)
-}
+        return FfiConverterString.lift(
+            callWithPointer {
+                uniffiRustCall() { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_method_trustdidwebid_get_url(
+                        it, _status)
+                }
+            }
+        )
     }
-    )
-    }
-    
 
-    
 
-    
+
+
+
     companion object {
-        
-    /**
-     * The only (non-empty) constructor in charge of DID parsing.
-     *
-     * CAUTION Calling any of the available getters should take place after this method is called, not earlier.
-     */
-    @Throws(TrustDidWebIdResolutionException::class) fun `parseDidTdw`(`didTdw`: kotlin.String, `allowHttp`: kotlin.Boolean?): TrustDidWebId {
-            return FfiConverterTypeTrustDidWebId.lift(
-    uniffiRustCallWithError(TrustDidWebIdResolutionException) { _status ->
-    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_trustdidwebid_parse_did_tdw(
-        FfiConverterString.lower(`didTdw`),FfiConverterOptionalBoolean.lower(`allowHttp`),_status)
-}
-    )
-    }
-    
 
-        
+        /**
+         * The only (non-empty) constructor in charge of DID parsing.
+         *
+         * CAUTION Calling any of the available getters should take place after this method is called, not earlier.
+         */
+        @Throws(TrustDidWebIdResolutionException::class) fun `parseDidTdw`(`didTdw`: kotlin.String, `allowHttp`: kotlin.Boolean?): TrustDidWebId {
+            return FfiConverterTypeTrustDidWebId.lift(
+                uniffiRustCallWithError(TrustDidWebIdResolutionException) { _status ->
+                    UniffiLib.INSTANCE.uniffi_didtoolbox_fn_constructor_trustdidwebid_parse_did_tdw(
+                        FfiConverterString.lower(`didTdw`),FfiConverterOptionalBoolean.lower(`allowHttp`),_status)
+                }
+            )
+        }
+
+
+
     }
-    
+
 }
 
 /**
@@ -3585,14 +3593,14 @@ public object FfiConverterTypeTrustDidWebId: FfiConverter<TrustDidWebId, Pointer
 
 
 data class Jwk (
-    var `alg`: kotlin.String?, 
-    var `kid`: kotlin.String?, 
-    var `kty`: kotlin.String?, 
-    var `crv`: kotlin.String?, 
-    var `x`: kotlin.String?, 
+    var `alg`: kotlin.String?,
+    var `kid`: kotlin.String?,
+    var `kty`: kotlin.String?,
+    var `crv`: kotlin.String?,
+    var `x`: kotlin.String?,
     var `y`: kotlin.String?
 ) {
-    
+
     companion object
 }
 
@@ -3613,33 +3621,33 @@ public object FfiConverterTypeJwk: FfiConverterRustBuffer<Jwk> {
 
     override fun allocationSize(value: Jwk) = (
             FfiConverterOptionalString.allocationSize(value.`alg`) +
-            FfiConverterOptionalString.allocationSize(value.`kid`) +
-            FfiConverterOptionalString.allocationSize(value.`kty`) +
-            FfiConverterOptionalString.allocationSize(value.`crv`) +
-            FfiConverterOptionalString.allocationSize(value.`x`) +
-            FfiConverterOptionalString.allocationSize(value.`y`)
-    )
+                    FfiConverterOptionalString.allocationSize(value.`kid`) +
+                    FfiConverterOptionalString.allocationSize(value.`kty`) +
+                    FfiConverterOptionalString.allocationSize(value.`crv`) +
+                    FfiConverterOptionalString.allocationSize(value.`x`) +
+                    FfiConverterOptionalString.allocationSize(value.`y`)
+            )
 
     override fun write(value: Jwk, buf: ByteBuffer) {
-            FfiConverterOptionalString.write(value.`alg`, buf)
-            FfiConverterOptionalString.write(value.`kid`, buf)
-            FfiConverterOptionalString.write(value.`kty`, buf)
-            FfiConverterOptionalString.write(value.`crv`, buf)
-            FfiConverterOptionalString.write(value.`x`, buf)
-            FfiConverterOptionalString.write(value.`y`, buf)
+        FfiConverterOptionalString.write(value.`alg`, buf)
+        FfiConverterOptionalString.write(value.`kid`, buf)
+        FfiConverterOptionalString.write(value.`kty`, buf)
+        FfiConverterOptionalString.write(value.`crv`, buf)
+        FfiConverterOptionalString.write(value.`x`, buf)
+        FfiConverterOptionalString.write(value.`y`, buf)
     }
 }
 
 
 
 data class VerificationMethod (
-    var `id`: kotlin.String, 
-    var `controller`: kotlin.String, 
-    var `verificationType`: VerificationType, 
-    var `publicKeyMultibase`: kotlin.String?, 
+    var `id`: kotlin.String,
+    var `controller`: kotlin.String,
+    var `verificationType`: VerificationType,
+    var `publicKeyMultibase`: kotlin.String?,
     var `publicKeyJwk`: Jwk?
 ) {
-    
+
     companion object
 }
 
@@ -3659,18 +3667,18 @@ public object FfiConverterTypeVerificationMethod: FfiConverterRustBuffer<Verific
 
     override fun allocationSize(value: VerificationMethod) = (
             FfiConverterString.allocationSize(value.`id`) +
-            FfiConverterString.allocationSize(value.`controller`) +
-            FfiConverterTypeVerificationType.allocationSize(value.`verificationType`) +
-            FfiConverterOptionalString.allocationSize(value.`publicKeyMultibase`) +
-            FfiConverterOptionalTypeJwk.allocationSize(value.`publicKeyJwk`)
-    )
+                    FfiConverterString.allocationSize(value.`controller`) +
+                    FfiConverterTypeVerificationType.allocationSize(value.`verificationType`) +
+                    FfiConverterOptionalString.allocationSize(value.`publicKeyMultibase`) +
+                    FfiConverterOptionalTypeJwk.allocationSize(value.`publicKeyJwk`)
+            )
 
     override fun write(value: VerificationMethod, buf: ByteBuffer) {
-            FfiConverterString.write(value.`id`, buf)
-            FfiConverterString.write(value.`controller`, buf)
-            FfiConverterTypeVerificationType.write(value.`verificationType`, buf)
-            FfiConverterOptionalString.write(value.`publicKeyMultibase`, buf)
-            FfiConverterOptionalTypeJwk.write(value.`publicKeyJwk`, buf)
+        FfiConverterString.write(value.`id`, buf)
+        FfiConverterString.write(value.`controller`, buf)
+        FfiConverterTypeVerificationType.write(value.`verificationType`, buf)
+        FfiConverterOptionalString.write(value.`publicKeyMultibase`, buf)
+        FfiConverterOptionalTypeJwk.write(value.`publicKeyJwk`, buf)
     }
 }
 
@@ -3683,32 +3691,42 @@ public object FfiConverterTypeVerificationMethod: FfiConverterRustBuffer<Verific
  * It might occur while calling TrustDidWeb methods.
  */
 sealed class TrustDidWebException(message: String): kotlin.Exception(message) {
-        
+
     /**
      * DID method is not supported by this resolver.
      */
-        class MethodNotSupported(message: String) : TrustDidWebException(message)
-        
+    class MethodNotSupported(message: String) : TrustDidWebException(message)
+
     /**
      * Invalid method-specific identifier.
      */
-        class InvalidMethodSpecificId(message: String) : TrustDidWebException(message)
-        
+    class InvalidMethodSpecificId(message: String) : TrustDidWebException(message)
+
     /**
-     * TODO Complete this docstring
+     * Failed to serialize DID document (to JSON).
      */
-        class SerializationFailed(message: String) : TrustDidWebException(message)
-        
+    class SerializationFailed(message: String) : TrustDidWebException(message)
+
     /**
      * The supplied did doc is invalid or contains an argument which isn't part of the did specification/recommendation.
      */
-        class DeserializationFailed(message: String) : TrustDidWebException(message)
-        
+    class DeserializationFailed(message: String) : TrustDidWebException(message)
+
     /**
      * Invalid (or not yet supported) operation against DID doc.
      */
-        class InvalidOperation(message: String) : TrustDidWebException(message)
-        
+    class InvalidOperation(message: String) : TrustDidWebException(message)
+
+    /**
+     * Invalid DID document.
+     */
+    class InvalidDidDocument(message: String) : TrustDidWebException(message)
+
+    /**
+     * Invalid DID log integration proof.
+     */
+    class InvalidDataIntegrityProof(message: String) : TrustDidWebException(message)
+
 
     companion object ErrorHandler : UniffiRustCallStatusErrorHandler<TrustDidWebException> {
         override fun lift(error_buf: RustBuffer.ByValue): TrustDidWebException = FfiConverterTypeTrustDidWebError.lift(error_buf)
@@ -3720,16 +3738,18 @@ sealed class TrustDidWebException(message: String): kotlin.Exception(message) {
  */
 public object FfiConverterTypeTrustDidWebError : FfiConverterRustBuffer<TrustDidWebException> {
     override fun read(buf: ByteBuffer): TrustDidWebException {
-        
-            return when(buf.getInt()) {
+
+        return when(buf.getInt()) {
             1 -> TrustDidWebException.MethodNotSupported(FfiConverterString.read(buf))
             2 -> TrustDidWebException.InvalidMethodSpecificId(FfiConverterString.read(buf))
             3 -> TrustDidWebException.SerializationFailed(FfiConverterString.read(buf))
             4 -> TrustDidWebException.DeserializationFailed(FfiConverterString.read(buf))
             5 -> TrustDidWebException.InvalidOperation(FfiConverterString.read(buf))
+            6 -> TrustDidWebException.InvalidDidDocument(FfiConverterString.read(buf))
+            7 -> TrustDidWebException.InvalidDataIntegrityProof(FfiConverterString.read(buf))
             else -> throw RuntimeException("invalid error enum value, something is very wrong!!")
         }
-        
+
     }
 
     override fun allocationSize(value: TrustDidWebException): ULong {
@@ -3758,6 +3778,14 @@ public object FfiConverterTypeTrustDidWebError : FfiConverterRustBuffer<TrustDid
                 buf.putInt(5)
                 Unit
             }
+            is TrustDidWebException.InvalidDidDocument -> {
+                buf.putInt(6)
+                Unit
+            }
+            is TrustDidWebException.InvalidDataIntegrityProof -> {
+                buf.putInt(7)
+                Unit
+            }
         }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }
     }
 
@@ -3772,17 +3800,17 @@ public object FfiConverterTypeTrustDidWebError : FfiConverterRustBuffer<TrustDid
  * It might occur while calling TrustDidWebId methods.
  */
 sealed class TrustDidWebIdResolutionException(message: String): kotlin.Exception(message) {
-        
+
     /**
      * DID method is not supported by this resolver.
      */
-        class MethodNotSupported(message: String) : TrustDidWebIdResolutionException(message)
-        
+    class MethodNotSupported(message: String) : TrustDidWebIdResolutionException(message)
+
     /**
      * Invalid method-specific identifier.
      */
-        class InvalidMethodSpecificId(message: String) : TrustDidWebIdResolutionException(message)
-        
+    class InvalidMethodSpecificId(message: String) : TrustDidWebIdResolutionException(message)
+
 
     companion object ErrorHandler : UniffiRustCallStatusErrorHandler<TrustDidWebIdResolutionException> {
         override fun lift(error_buf: RustBuffer.ByValue): TrustDidWebIdResolutionException = FfiConverterTypeTrustDidWebIdResolutionError.lift(error_buf)
@@ -3794,13 +3822,13 @@ sealed class TrustDidWebIdResolutionException(message: String): kotlin.Exception
  */
 public object FfiConverterTypeTrustDidWebIdResolutionError : FfiConverterRustBuffer<TrustDidWebIdResolutionException> {
     override fun read(buf: ByteBuffer): TrustDidWebIdResolutionException {
-        
-            return when(buf.getInt()) {
+
+        return when(buf.getInt()) {
             1 -> TrustDidWebIdResolutionException.MethodNotSupported(FfiConverterString.read(buf))
             2 -> TrustDidWebIdResolutionException.InvalidMethodSpecificId(FfiConverterString.read(buf))
             else -> throw RuntimeException("invalid error enum value, something is very wrong!!")
         }
-        
+
     }
 
     override fun allocationSize(value: TrustDidWebIdResolutionException): ULong {
@@ -3826,7 +3854,7 @@ public object FfiConverterTypeTrustDidWebIdResolutionError : FfiConverterRustBuf
 
 
 enum class VerificationType {
-    
+
     MULTIKEY,
     JSON_WEB_KEY2020,
     ED25519_VERIFICATION_KEY2020;
