@@ -2,9 +2,9 @@
 
 # DID resolver for Kotlin applications
 
-This project contains language bindings required for loading and using the [DID resolver](https://github.com/e-id-admin/didresolver) library in Java/Kotlin applications.
+This project contains language bindings required for loading and using the [DID resolver](https://github.com/swiyu-admin-ch/didresolver) library in Java/Kotlin applications.
 
-You are more then welcome to explore the relevant [examples](https://github.com/e-id-admin/didresolver-examples) in a further detail.
+You are more then welcome to explore the relevant [examples](https://github.com/swiyu-admin-ch/didresolver-examples) in a further detail.
 
 ## Contributions and feedback
 

@@ -5,7 +5,7 @@ plugins {
 
 group =
  "ch.admin.eid"
-version = "1.0.1"
+version = "1.0.2"
 
 repositories {
     // Use Maven Central for resolving dependencies.
@@ -27,14 +27,14 @@ publishing {
         register<MavenPublication>("gpr") {
             groupId = "ch.admin.eid"
             artifactId = "didresolver"
-            version = "1.0.1"
+            version = "1.0.2"
             from(components["kotlin"])
         }
     }
     repositories {
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/e-id-admin/didresolver-kotlin")
+            url = uri("https://maven.pkg.github.com/swiyu-admin-ch/didresolver-kotlin")
             credentials {
                 // For the GitHub packages, create a personal access token having 'write:packages' scope
                 // and then store it into gradle.properties:
