@@ -5,7 +5,7 @@ plugins {
 
 group =
  "ch.admin.eid"
-version = "2.0.0"
+version = "2.0.1"
 
 repositories {
     // Use Maven Central for resolving dependencies.
@@ -27,7 +27,7 @@ publishing {
         register<MavenPublication>("gpr") {
             groupId = "ch.admin.eid"
             artifactId = "didresolver"
-            version = "2.0.0"
+            version = "2.0.1"
             from(components["kotlin"])
         }
     }
