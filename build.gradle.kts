@@ -1,11 +1,15 @@
 plugins {
     kotlin("jvm") version "1.9.23"
     `maven-publish`
+    // As suggested by https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-publish-libraries.html
+    // see https://vanniktech.github.io/gradle-maven-publish-plugin/
+    id("com.vanniktech.maven.publish") version "0.31.0"
 }
 
-group =
- "ch.admin.eid"
-version = "2.0.1"
+//group = "ch.admin.eid"
+group = "io.github.swiyu-admin-ch"
+//version = "2.0.1"
+version = "0.0.997"
 
 repositories {
     // Use Maven Central for resolving dependencies.
@@ -22,6 +26,7 @@ kotlin {
     jvmToolchain(21)
 }
 
+/*
 publishing {
     publications {
         register<MavenPublication>("gpr") {
@@ -57,6 +62,42 @@ publishing {
                 username = project.findProperty("nexus.user") as String? ?: System.getenv("NEXUS_USERNAME")
                 password = project.findProperty("nexus.token") as String? ?: System.getenv("NEXUS_TOKEN")
             }
+        }
+    }
+}
+ */
+
+// As suggested by https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-publish-libraries.html
+mavenPublishing {
+    // when publishing to https://central.sonatype.com/
+    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL, automaticRelease = false)
+
+    signAllPublications()
+
+    coordinates(group.toString(), "didresolver", version.toString())
+
+    pom {
+        name = "DID Resolver"
+        description = "Language bindings for the swiyu DID resolver library in Kotlin"
+        url = "https://github.com/swiyu-admin-ch/didresolver"
+        licenses {
+            license {
+                name = "MIT License"
+                url = "http://www.opensource.org/licenses/mit"
+            }
+        }
+        developers {
+            developer {
+                id = "vst-bit"
+                //name = "Omni Developer"
+                organization = "Swiyu"
+                organizationUrl = "https://github.com/swiyu-admin-ch"
+            }
+        }
+        scm {
+            url = "https://github.com/swiyu-admin-ch/didresolver/tree/master"
+            connection = "scm:git:git://github.com/swiyu-admin-ch/didresolver.git"
+            developerConnection = "scm:git:ssh://github.com:swiyu-admin-ch/didresolver.git"
         }
     }
 }
