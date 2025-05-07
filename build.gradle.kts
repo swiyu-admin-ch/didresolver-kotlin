@@ -6,8 +6,8 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.31.0"
 }
 
-// CAUTION Until 2.0.1, "group" was "ch.admin.eid"
-//         Currently, it matches the Maven Central namespace
+// CAUTION Until 2.0.1 (GitHub packages), the "group" was set to "ch.admin.eid".
+//         For the sake of Maven Central publishing, it must now matches the Maven Central namespace
 group = "io.github.swiyu-admin-ch"
 version = "2.0.1"
 
@@ -95,9 +95,9 @@ mavenPublishing {
             }
         }
         scm {
-            url = "https://github.com/swiyu-admin-ch/didresolver/tree/master"
-            connection = "scm:git:git://github.com/swiyu-admin-ch/didresolver.git"
-            developerConnection = "scm:git:ssh://github.com:swiyu-admin-ch/didresolver.git"
+            url = "https://github.com/swiyu-admin-ch/didresolver-kotlin/tree/main"
+            connection = "scm:git:git://github.com/swiyu-admin-ch/didresolver-kotlin.git"
+            developerConnection = "scm:git:ssh://github.com:swiyu-admin-ch/didresolver-kotlin.git"
         }
     }
 }
