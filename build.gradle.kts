@@ -6,7 +6,9 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.31.0"
 }
 
-group = "ch.admin.eid"
+// CAUTION Until 2.0.1, "group" was "ch.admin.eid"
+//         Currently, it matches the Maven Central namespace
+group = "io.github.swiyu-admin-ch"
 version = "2.0.1"
 
 repositories {
