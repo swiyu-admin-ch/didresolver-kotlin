@@ -89,7 +89,7 @@ mavenPublishing {
         developers {
             developer {
                 id = "vst-bit"
-                //name = "Omni Developer"
+                name = "vst-bit (Swiyu Omni Developer)"
                 organization = "Swiyu"
                 organizationUrl = "https://github.com/swiyu-admin-ch"
             }
