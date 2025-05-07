@@ -6,10 +6,8 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.31.0"
 }
 
-//group = "ch.admin.eid"
-group = "io.github.swiyu-admin-ch"
-//version = "2.0.1"
-version = "0.0.997"
+group = "ch.admin.eid"
+version = "2.0.1"
 
 repositories {
     // Use Maven Central for resolving dependencies.
