@@ -4,7 +4,7 @@
 
 This project contains language bindings required for loading and using the [DID resolver](https://github.com/swiyu-admin-ch/didresolver) library in Java/Kotlin applications.
 
-To configure Apache Maven to use a published package from [Maven Central Repository](https://repo1.maven.org/maven2/io/github/swiyu-admin-ch/didresolver),
+To [configure Apache Maven](https://central.sonatype.org/consume/consume-apache-maven/) to consume a published package from [Maven Central Repository](https://repo1.maven.org/maven2/io/github/swiyu-admin-ch/didresolver),
 edit the `pom.xml` file to include the package as a `dependency`:
 
 ```xml
@@ -15,7 +15,7 @@ edit the `pom.xml` file to include the package as a `dependency`:
 </dependency>
 ```
 
-To configure Gradle to use a published package from [Maven Central Repository](https://repo1.maven.org/maven2/io/github/swiyu-admin-ch/didresolver),
+To [configure Gradle](https://central.sonatype.org/consume/consume-gradle/) to consume a published package from [Maven Central Repository](https://repo1.maven.org/maven2/io/github/swiyu-admin-ch/didresolver),
 add the package to `dependencies` section in your `build.gradle.kts` (Kotlin DSL) file:
 
 ```kotlin
