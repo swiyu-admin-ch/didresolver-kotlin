@@ -79,7 +79,7 @@ mavenPublishing {
     pom {
         name = "DID Resolver"
         description = "Language bindings for the swiyu DID resolver library in Kotlin"
-        url = "https://github.com/swiyu-admin-ch/didresolver"
+        url = "https://github.com/swiyu-admin-ch/didresolver-kotlin"
         licenses {
             license {
                 name = "MIT License"
