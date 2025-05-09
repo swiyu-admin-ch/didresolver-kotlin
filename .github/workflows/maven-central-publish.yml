@@ -25,7 +25,7 @@ jobs:
           java-version: 21
 
       - name: Decode GPG private key into file
-        #id: write_gpg_file
+        id: write_gpg_file
         uses: timheuer/base64-to-file@v1.2
         with:
           fileName: 'GPG_PRIVATE_KEY.gpg'
@@ -35,7 +35,7 @@ jobs:
         id: read_gpg_file
         uses: andstor/file-reader-action@v1
         with:
-          path: 'GPG_PRIVATE_KEY.gpg'
+          path: ${{ steps.write_gpg_file.outputs.filePath }}
 
       - name: Publish
         # as suggested by https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-publish-libraries.html
