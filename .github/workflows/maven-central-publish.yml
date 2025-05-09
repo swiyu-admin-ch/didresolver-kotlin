@@ -26,16 +26,32 @@ jobs:
 
       - name: Decode GPG private key into file
         id: write_gpg_file
-        uses: timheuer/base64-to-file@v1.2
+        uses: timheuer/base64-to-file@v1.2.4
         with:
           fileName: 'GPG_PRIVATE_KEY.gpg'
           encodedString: ${{ secrets.GPG_PRIVATE_KEY_BASE64 }}
+
+      - name: Decode GPG private key into path
+        id: write_gpg_path
+        uses: RollyPeres/base64-to-path@v1
+        with:
+          filePath: ${{ github.workspace }}/GPG_PRIVATE_KEY.gpg
+          encodedString: ${{ secrets.GPG_PRIVATE_KEY_BASE64 }}
+
+      - name: Decode GPG secret
+        #id: base64-secret-to-file
+        uses: davidSchuppa/base64Secret-toFile-action@v3
+        with:
+          secret: ${{ secrets.GPG_PRIVATE_KEY_BASE64 }}
+          filename: 'GPG_PRIVATE_KEY.gpg'
+          destination-path: ${{ github.workspace }}
 
       - name: Read GPG file
         id: read_gpg_file
         uses: andstor/file-reader-action@v1
         with:
-          path: ${{ steps.write_gpg_file.outputs.filePath }}
+          #path: ${{ steps.write_gpg_file.outputs.filePath }}
+          path: ${{ steps.write_gpg_path.outputs.filePath }}
 
       - name: Publish
         # as suggested by https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-publish-libraries.html
