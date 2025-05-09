@@ -33,7 +33,8 @@ jobs:
 
       - name: Read decoded GPG private key file
         id: read_gpg_file
-        uses: andstor/file-reader-action@v1
+        #uses: andstor/file-reader-action@v1
+        uses: juliangruber/read-file-action@v1.1.7
         with:
           path: ${{ steps.write_gpg_file.outputs.filePath }}
           trim: true
