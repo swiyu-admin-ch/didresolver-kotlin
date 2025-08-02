@@ -9,7 +9,7 @@ plugins {
 // CAUTION Until 2.0.1 (GitHub packages), the "group" was set to "ch.admin.eid".
 //         For the sake of Maven Central publishing, it must now match the Maven Central namespace
 group = "io.github.swiyu-admin-ch"
-version = "0.0.996"
+version = "2.1.3.0"
 
 repositories {
     // Use Maven Central for resolving dependencies.
@@ -70,7 +70,7 @@ publishing {
 // As suggested by https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-publish-libraries.html
 mavenPublishing {
     // when publishing to https://central.sonatype.com/
-    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL, automaticRelease = false)
 
     signAllPublications()
 
