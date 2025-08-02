@@ -3,6 +3,9 @@
 
 name: Publish package to the Maven Central Repository
 
+permissions:
+  contents: read
+
 on:
   release:
     # see https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#release
