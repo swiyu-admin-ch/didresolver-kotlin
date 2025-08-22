@@ -3,7 +3,7 @@
 
 @file:Suppress("NAME_SHADOWING")
 
-package ch.admin.eid.didresolver
+package ch.admin.eid.did_webvh
 
 // Common helper code.
 //
@@ -62,7 +62,7 @@ open class RustBuffer : Structure() {
     companion object {
         internal fun alloc(size: ULong = 0UL) = uniffiRustCall() { status ->
             // Note: need to convert the size to a `Long` value to make this work with JVM.
-            UniffiLib.INSTANCE.ffi_didresolver_rustbuffer_alloc(size.toLong(), status)
+            UniffiLib.INSTANCE.ffi_did_webvh_rustbuffer_alloc(size.toLong(), status)
         }.also {
             if(it.data == null) {
                throw RuntimeException("RustBuffer.alloc() returned null data pointer (size=${size})")
@@ -78,7 +78,7 @@ open class RustBuffer : Structure() {
         }
 
         internal fun free(buf: RustBuffer.ByValue) = uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.ffi_didresolver_rustbuffer_free(buf, status)
+            UniffiLib.INSTANCE.ffi_did_webvh_rustbuffer_free(buf, status)
         }
     }
 
@@ -723,6 +723,18 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 // For large crates we prevent `MethodTooLargeException` (see #2340)
 // N.B. the name of the extension is very misleading, since it is 
 // rather `InterfaceTooLargeException`, caused by too many methods 
@@ -738,13 +750,23 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 // when the library is loaded.
 internal interface IntegrityCheckingUniffiLib : Library {
     // Integrity check functions only
-    fun uniffi_didresolver_checksum_method_did_get_url(
+    fun uniffi_did_webvh_checksum_method_webverifiablehistory_get_did(
 ): Short
-fun uniffi_didresolver_checksum_method_did_resolve(
+fun uniffi_did_webvh_checksum_method_webverifiablehistory_get_did_doc(
 ): Short
-fun uniffi_didresolver_checksum_constructor_did_new(
+fun uniffi_did_webvh_checksum_method_webverifiablehistory_get_did_doc_obj(
 ): Short
-fun ffi_didresolver_uniffi_contract_version(
+fun uniffi_did_webvh_checksum_method_webverifiablehistory_get_did_log(
+): Short
+fun uniffi_did_webvh_checksum_method_webverifiablehistoryid_get_scid(
+): Short
+fun uniffi_did_webvh_checksum_method_webverifiablehistoryid_get_url(
+): Short
+fun uniffi_did_webvh_checksum_constructor_webverifiablehistory_read(
+): Short
+fun uniffi_did_webvh_checksum_constructor_webverifiablehistoryid_parse_did_webvh(
+): Short
+fun ffi_did_webvh_uniffi_contract_version(
 ): Int
 
 }
@@ -754,7 +776,7 @@ fun ffi_didresolver_uniffi_contract_version(
 internal interface UniffiLib : Library {
     companion object {
         internal val INSTANCE: UniffiLib by lazy {
-            val componentName = "did"
+            val componentName = "did_webvh"
             // For large crates we prevent `MethodTooLargeException` (see #2340)
             // N.B. the name of the extension is very misleading, since it is 
             // rather `InterfaceTooLargeException`, caused by too many methods 
@@ -794,127 +816,141 @@ internal interface UniffiLib : Library {
     }
 
     // FFI functions
-    fun uniffi_didresolver_fn_clone_did(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_did_webvh_fn_clone_webverifiablehistory(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
 ): Pointer
-fun uniffi_didresolver_fn_free_did(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+fun uniffi_did_webvh_fn_free_webverifiablehistory(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
-fun uniffi_didresolver_fn_constructor_did_new(`didTdw`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+fun uniffi_did_webvh_fn_constructor_webverifiablehistory_read(`didWebvh`: RustBuffer.ByValue,`didLog`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): Pointer
-fun uniffi_didresolver_fn_method_did_get_url(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+fun uniffi_did_webvh_fn_method_webverifiablehistory_get_did(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
-fun uniffi_didresolver_fn_method_did_resolve(`ptr`: Pointer,`didTdwLog`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+fun uniffi_did_webvh_fn_method_webverifiablehistory_get_did_doc(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_did_webvh_fn_method_webverifiablehistory_get_did_doc_obj(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
 ): Pointer
-fun ffi_didresolver_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
+fun uniffi_did_webvh_fn_method_webverifiablehistory_get_did_log(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
-fun ffi_didresolver_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+fun uniffi_did_webvh_fn_clone_webverifiablehistoryid(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+): Pointer
+fun uniffi_did_webvh_fn_free_webverifiablehistoryid(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+fun uniffi_did_webvh_fn_constructor_webverifiablehistoryid_parse_did_webvh(`didWebvh`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Pointer
+fun uniffi_did_webvh_fn_method_webverifiablehistoryid_get_scid(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
-fun ffi_didresolver_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun ffi_didresolver_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Long,uniffi_out_err: UniffiRustCallStatus, 
+fun uniffi_did_webvh_fn_method_webverifiablehistoryid_get_url(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
-fun ffi_didresolver_rust_future_poll_u8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+fun ffi_did_webvh_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun ffi_did_webvh_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun ffi_did_webvh_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
-fun ffi_didresolver_rust_future_cancel_u8(`handle`: Long,
+fun ffi_did_webvh_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun ffi_did_webvh_rust_future_poll_u8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_free_u8(`handle`: Long,
+fun ffi_did_webvh_rust_future_cancel_u8(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_complete_u8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+fun ffi_did_webvh_rust_future_free_u8(`handle`: Long,
+): Unit
+fun ffi_did_webvh_rust_future_complete_u8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Byte
-fun ffi_didresolver_rust_future_poll_i8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+fun ffi_did_webvh_rust_future_poll_i8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_cancel_i8(`handle`: Long,
+fun ffi_did_webvh_rust_future_cancel_i8(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_free_i8(`handle`: Long,
+fun ffi_did_webvh_rust_future_free_i8(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_complete_i8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+fun ffi_did_webvh_rust_future_complete_i8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Byte
-fun ffi_didresolver_rust_future_poll_u16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+fun ffi_did_webvh_rust_future_poll_u16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_cancel_u16(`handle`: Long,
+fun ffi_did_webvh_rust_future_cancel_u16(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_free_u16(`handle`: Long,
+fun ffi_did_webvh_rust_future_free_u16(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_complete_u16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+fun ffi_did_webvh_rust_future_complete_u16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Short
-fun ffi_didresolver_rust_future_poll_i16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+fun ffi_did_webvh_rust_future_poll_i16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_cancel_i16(`handle`: Long,
+fun ffi_did_webvh_rust_future_cancel_i16(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_free_i16(`handle`: Long,
+fun ffi_did_webvh_rust_future_free_i16(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_complete_i16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+fun ffi_did_webvh_rust_future_complete_i16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Short
-fun ffi_didresolver_rust_future_poll_u32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+fun ffi_did_webvh_rust_future_poll_u32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_cancel_u32(`handle`: Long,
+fun ffi_did_webvh_rust_future_cancel_u32(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_free_u32(`handle`: Long,
+fun ffi_did_webvh_rust_future_free_u32(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_complete_u32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+fun ffi_did_webvh_rust_future_complete_u32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Int
-fun ffi_didresolver_rust_future_poll_i32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+fun ffi_did_webvh_rust_future_poll_i32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_cancel_i32(`handle`: Long,
+fun ffi_did_webvh_rust_future_cancel_i32(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_free_i32(`handle`: Long,
+fun ffi_did_webvh_rust_future_free_i32(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_complete_i32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+fun ffi_did_webvh_rust_future_complete_i32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Int
-fun ffi_didresolver_rust_future_poll_u64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+fun ffi_did_webvh_rust_future_poll_u64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_cancel_u64(`handle`: Long,
+fun ffi_did_webvh_rust_future_cancel_u64(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_free_u64(`handle`: Long,
+fun ffi_did_webvh_rust_future_free_u64(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_complete_u64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+fun ffi_did_webvh_rust_future_complete_u64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Long
-fun ffi_didresolver_rust_future_poll_i64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+fun ffi_did_webvh_rust_future_poll_i64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_cancel_i64(`handle`: Long,
+fun ffi_did_webvh_rust_future_cancel_i64(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_free_i64(`handle`: Long,
+fun ffi_did_webvh_rust_future_free_i64(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_complete_i64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+fun ffi_did_webvh_rust_future_complete_i64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Long
-fun ffi_didresolver_rust_future_poll_f32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+fun ffi_did_webvh_rust_future_poll_f32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_cancel_f32(`handle`: Long,
+fun ffi_did_webvh_rust_future_cancel_f32(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_free_f32(`handle`: Long,
+fun ffi_did_webvh_rust_future_free_f32(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_complete_f32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+fun ffi_did_webvh_rust_future_complete_f32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Float
-fun ffi_didresolver_rust_future_poll_f64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+fun ffi_did_webvh_rust_future_poll_f64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_cancel_f64(`handle`: Long,
+fun ffi_did_webvh_rust_future_cancel_f64(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_free_f64(`handle`: Long,
+fun ffi_did_webvh_rust_future_free_f64(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_complete_f64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+fun ffi_did_webvh_rust_future_complete_f64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Double
-fun ffi_didresolver_rust_future_poll_pointer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+fun ffi_did_webvh_rust_future_poll_pointer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_cancel_pointer(`handle`: Long,
+fun ffi_did_webvh_rust_future_cancel_pointer(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_free_pointer(`handle`: Long,
+fun ffi_did_webvh_rust_future_free_pointer(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_complete_pointer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+fun ffi_did_webvh_rust_future_complete_pointer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Pointer
-fun ffi_didresolver_rust_future_poll_rust_buffer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+fun ffi_did_webvh_rust_future_poll_rust_buffer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_cancel_rust_buffer(`handle`: Long,
+fun ffi_did_webvh_rust_future_cancel_rust_buffer(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_free_rust_buffer(`handle`: Long,
+fun ffi_did_webvh_rust_future_free_rust_buffer(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_complete_rust_buffer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+fun ffi_did_webvh_rust_future_complete_rust_buffer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
-fun ffi_didresolver_rust_future_poll_void(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+fun ffi_did_webvh_rust_future_poll_void(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_cancel_void(`handle`: Long,
+fun ffi_did_webvh_rust_future_cancel_void(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_free_void(`handle`: Long,
+fun ffi_did_webvh_rust_future_free_void(`handle`: Long,
 ): Unit
-fun ffi_didresolver_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+fun ffi_did_webvh_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
 
 }
@@ -923,20 +959,35 @@ private fun uniffiCheckContractApiVersion(lib: IntegrityCheckingUniffiLib) {
     // Get the bindings contract version from our ComponentInterface
     val bindings_contract_version = 29
     // Get the scaffolding contract version by calling the into the dylib
-    val scaffolding_contract_version = lib.ffi_didresolver_uniffi_contract_version()
+    val scaffolding_contract_version = lib.ffi_did_webvh_uniffi_contract_version()
     if (bindings_contract_version != scaffolding_contract_version) {
         throw RuntimeException("UniFFI contract version mismatch: try cleaning and rebuilding your project")
     }
 }
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
-    if (lib.uniffi_didresolver_checksum_method_did_get_url() != 12137.toShort()) {
+    if (lib.uniffi_did_webvh_checksum_method_webverifiablehistory_get_did() != 22238.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_didresolver_checksum_method_did_resolve() != 55284.toShort()) {
+    if (lib.uniffi_did_webvh_checksum_method_webverifiablehistory_get_did_doc() != 10530.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_didresolver_checksum_constructor_did_new() != 3590.toShort()) {
+    if (lib.uniffi_did_webvh_checksum_method_webverifiablehistory_get_did_doc_obj() != 1835.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_did_webvh_checksum_method_webverifiablehistory_get_did_log() != 45523.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_did_webvh_checksum_method_webverifiablehistoryid_get_scid() != 13368.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_did_webvh_checksum_method_webverifiablehistoryid_get_url() != 60113.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_did_webvh_checksum_constructor_webverifiablehistory_read() != 26621.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_did_webvh_checksum_constructor_webverifiablehistoryid_parse_did_webvh() != 21008.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
 }
@@ -1238,19 +1289,42 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
 //
 
 
-public interface DidInterface {
+/**
+ * The container for any *valid* `did:webvh` DID log in terms of the
+ * Read (Resolve) DID method operation (for a `did:webvh` DID),
+ * as specified by https://identity.foundation/didwebvh/v1.0/#read-resolve
+ */
+public interface WebVerifiableHistoryInterface {
     
     /**
-     * Returns the url part from the supplied DID, if supported and not malformed.
+     * Delivers the fully qualified DID identifier of the DID log previously resolved in the constructor
      */
-    fun `getUrl`(): kotlin.String
+    fun `getDid`(): kotlin.String
     
-    fun `resolve`(`didTdwLog`: kotlin.String): DidDoc
+    /**
+     * Delivers the fully qualified DID document (as `String`) contained within the DID log previously resolved in the constructor
+     */
+    fun `getDidDoc`(): kotlin.String
+    
+    /**
+     * Delivers the fully qualified DID document (as `DidDoc`) contained within the DID log previously resolved in the constructor
+     */
+    fun `getDidDocObj`(): DidDoc
+    
+    /**
+     * Delivers the very same DID log previously resolved in the constructor
+     */
+    fun `getDidLog`(): kotlin.String
     
     companion object
 }
 
-open class Did: Disposable, AutoCloseable, DidInterface
+/**
+ * The container for any *valid* `did:webvh` DID log in terms of the
+ * Read (Resolve) DID method operation (for a `did:webvh` DID),
+ * as specified by https://identity.foundation/didwebvh/v1.0/#read-resolve
+ */
+open class WebVerifiableHistory: Disposable, AutoCloseable, WebVerifiableHistoryInterface
 {
 
     constructor(pointer: Pointer) {
@@ -1268,13 +1342,6 @@ open class Did: Disposable, AutoCloseable, DidInterface
         this.pointer = null
         this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
     }
-    constructor(`didTdw`: kotlin.String) :
-        this(
-    uniffiRustCallWithError(DidResolveException) { _status ->
-    UniffiLib.INSTANCE.uniffi_didresolver_fn_constructor_did_new(
-        FfiConverterString.lower(`didTdw`),_status)
-}
-    )
 
     protected val pointer: Pointer?
     protected val cleanable: UniffiCleaner.Cleanable
@@ -1327,7 +1394,7 @@ open class Did: Disposable, AutoCloseable, DidInterface
         override fun run() {
             pointer?.let { ptr ->
                 uniffiRustCall { status ->
-                    UniffiLib.INSTANCE.uniffi_didresolver_fn_free_did(ptr, status)
+                    UniffiLib.INSTANCE.uniffi_did_webvh_fn_free_webverifiablehistory(ptr, status)
                 }
             }
         }
@@ -1335,19 +1402,18 @@ open class Did: Disposable, AutoCloseable, DidInterface
 
     fun uniffiClonePointer(): Pointer {
         return uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.uniffi_didresolver_fn_clone_did(pointer!!, status)
+            UniffiLib.INSTANCE.uniffi_did_webvh_fn_clone_webverifiablehistory(pointer!!, status)
         }
     }
 
     
     /**
-     * Returns the url part from the supplied DID, if supported and not malformed.
-     */
-    @Throws(DidResolveException::class)override fun `getUrl`(): kotlin.String {
+     * Delivers the fully qualified DID identifier of the DID log previously resolved in the constructor
+     */override fun `getDid`(): kotlin.String {
             return FfiConverterString.lift(
     callWithPointer {
-    uniffiRustCallWithError(DidResolveException) { _status ->
-    UniffiLib.INSTANCE.uniffi_didresolver_fn_method_did_get_url(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_did_webvh_fn_method_webverifiablehistory_get_did(
         it, _status)
 }
     }
@@ -1356,12 +1422,45 @@ open class Did: Disposable, AutoCloseable, DidInterface
     
 
     
-    @Throws(DidResolveException::class)override fun `resolve`(`didTdwLog`: kotlin.String): DidDoc {
+    /**
+     * Delivers the fully qualified DID document (as `String`) contained within the DID log previously resolved in the constructor
+     */override fun `getDidDoc`(): kotlin.String {
+            return FfiConverterString.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_did_webvh_fn_method_webverifiablehistory_get_did_doc(
+        it, _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Delivers the fully qualified DID document (as `DidDoc`) contained within the DID log previously resolved in the constructor
+     */
+    @Throws(WebVerifiableHistoryException::class)override fun `getDidDocObj`(): DidDoc {
             return FfiConverterTypeDidDoc.lift(
     callWithPointer {
-    uniffiRustCallWithError(DidResolveException) { _status ->
-    UniffiLib.INSTANCE.uniffi_didresolver_fn_method_did_resolve(
-        it, FfiConverterString.lower(`didTdwLog`),_status)
+    uniffiRustCallWithError(WebVerifiableHistoryException) { _status ->
+    UniffiLib.INSTANCE.uniffi_did_webvh_fn_method_webverifiablehistory_get_did_doc_obj(
+        it, _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Delivers the very same DID log previously resolved in the constructor
+     */override fun `getDidLog`(): kotlin.String {
+            return FfiConverterString.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_did_webvh_fn_method_webverifiablehistory_get_did_log(
+        it, _status)
 }
     }
     )
@@ -1371,33 +1470,342 @@ open class Did: Disposable, AutoCloseable, DidInterface
     
 
     
+    companion object {
+        
+    /**
+     * The single constructor of `WebVerifiableHistory` implementing the
+     * "Read (Resolve) DID method operation" (for a `did:webvh` DID), as specified by https://identity.foundation/didwebvh/v1.0/#read-resolve
+     *
+     * In case of error/exception, all the detailed information required to narrow down the root cause are available as well.
+     */
+    @Throws(WebVerifiableHistoryException::class) fun `read`(`didWebvh`: kotlin.String, `didLog`: kotlin.String): WebVerifiableHistory {
+            return FfiConverterTypeWebVerifiableHistory.lift(
+    uniffiRustCallWithError(WebVerifiableHistoryException) { _status ->
+    UniffiLib.INSTANCE.uniffi_did_webvh_fn_constructor_webverifiablehistory_read(
+        FfiConverterString.lower(`didWebvh`),FfiConverterString.lower(`didLog`),_status)
+}
+    )
+    }
     
-    companion object
+
+        
+    }
     
 }
 
 /**
  * @suppress
  */
-public object FfiConverterTypeDid: FfiConverter<Did, Pointer> {
+public object FfiConverterTypeWebVerifiableHistory: FfiConverter<WebVerifiableHistory, Pointer> {
 
-    override fun lower(value: Did): Pointer {
+    override fun lower(value: WebVerifiableHistory): Pointer {
         return value.uniffiClonePointer()
     }
 
-    override fun lift(value: Pointer): Did {
-        return Did(value)
+    override fun lift(value: Pointer): WebVerifiableHistory {
+        return WebVerifiableHistory(value)
     }
 
-    override fun read(buf: ByteBuffer): Did {
+    override fun read(buf: ByteBuffer): WebVerifiableHistory {
         // The Rust code always writes pointers as 8 bytes, and will
         // fail to compile if they don't fit.
         return lift(Pointer(buf.getLong()))
     }
 
-    override fun allocationSize(value: Did) = 8UL
+    override fun allocationSize(value: WebVerifiableHistory) = 8UL
 
-    override fun write(value: Did, buf: ByteBuffer) {
+    override fun write(value: WebVerifiableHistory, buf: ByteBuffer) {
+        // The Rust code always expects pointers written as 8 bytes,
+        // and will fail to compile if they don't fit.
+        buf.putLong(Pointer.nativeValue(lower(value)))
+    }
+}
+
+
+// This template implements a class for working with a Rust struct via a Pointer/Arc<T>
+// to the live Rust struct on the other side of the FFI.
+//
+// Each instance implements core operations for working with the Rust `Arc<T>` and the
+// Kotlin Pointer to work with the live Rust struct on the other side of the FFI.
+//
+// There's some subtlety here, because we have to be careful not to operate on a Rust
+// struct after it has been dropped, and because we must expose a public API for freeing
+// theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
+//
+//   * Each instance holds an opaque pointer to the underlying Rust struct.
+//     Method calls need to read this pointer from the object's state and pass it in to
+//     the Rust FFI.
+//
+//   * When an instance is no longer needed, its pointer should be passed to a
+//     special destructor function provided by the Rust FFI, which will drop the
+//     underlying Rust struct.
+//
+//   * Given an instance, calling code is expected to call the special
+//     `destroy` method in order to free it after use, either by calling it explicitly
+//     or by using a higher-level helper like the `use` method. Failing to do so risks
+//     leaking the underlying Rust struct.
+//
+//   * We can't assume that calling code will do the right thing, and must be prepared
+//     to handle Kotlin method calls executing concurrently with or even after a call to
+//     `destroy`, and to handle multiple (possibly concurrent!) calls to `destroy`.
+//
+//   * We must never allow Rust code to operate on the underlying Rust struct after
+//     the destructor has been called, and must never call the destructor more than once.
+//     Doing so may trigger memory unsafety.
+//
+//   * To mitigate many of the risks of leaking memory and use-after-free unsafety, a `Cleaner`
+//     is implemented to call the destructor when the Kotlin object becomes unreachable.
+//     This is done in a background thread. This is not a panacea, and client code should be aware that
+//      1. the thread may starve if some there are objects that have poorly performing
+//     `drop` methods or do significant work in their `drop` methods.
+//      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
+//         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
+//
+// If we try to implement this with mutual exclusion on access to the pointer, there is the
+// possibility of a race between a method call and a concurrent call to `destroy`:
+//
+//    * Thread A starts a method call, reads the value of the pointer, but is interrupted
+//      before it can pass the pointer over the FFI to Rust.
+//    * Thread B calls `destroy` and frees the underlying Rust struct.
+//    * Thread A resumes, passing the already-read pointer value to Rust and triggering
+//      a use-after-free.
+//
+// One possible solution would be to use a `ReadWriteLock`, with each method call taking
+// a read lock (and thus allowed to run concurrently) and the special `destroy` method
+// taking a write lock (and thus blocking on live method calls). However, we aim not to
+// generate methods with any hidden blocking semantics, and a `destroy` method that might
+// block if called incorrectly seems to meet that bar.
+//
+// So, we achieve our goals by giving each instance an associated `AtomicLong` counter to track
+// the number of in-flight method calls, and an `AtomicBoolean` flag to indicate whether `destroy`
+// has been called. These are updated according to the following rules:
+//
+//    * The initial value of the counter is 1, indicating a live object with no in-flight calls.
+//      The initial value for the flag is false.
+//
+//    * At the start of each method call, we atomically check the counter.
+//      If it is 0 then the underlying Rust struct has already been destroyed and the call is aborted.
+//      If it is nonzero them we atomically increment it by 1 and proceed with the method call.
+//
+//    * At the end of each method call, we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+//    * When `destroy` is called, we atomically flip the flag from false to true.
+//      If the flag was already true we silently fail.
+//      Otherwise we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+// Astute readers may observe that this all sounds very similar to the way that Rust's `Arc<T>` works,
+// and indeed it is, with the addition of a flag to guard against multiple calls to `destroy`.
+//
+// The overall effect is that the underlying Rust struct is destroyed only when `destroy` has been
+// called *and* all in-flight method calls have completed, avoiding violating any of the expectations
+// of the underlying Rust code.
+//
+// This makes a cleaner a better alternative to _not_ calling `destroy()` as
+// and when the object is finished with, but the abstraction is not perfect: if the Rust object's `drop`
+// method is slow, and/or there are many objects to cleanup, and it's on a low end Android device, then the cleaner
+// thread may be starved, and the app will leak memory.
+//
+// In this case, `destroy`ing manually may be a better solution.
+//
+// The cleaner can live side by side with the manual calling of `destroy`. In the order of responsiveness, uniffi objects
+// with Rust peers are reclaimed:
+//
+// 1. By calling the `destroy` method of the object, which calls `rustObject.free()`. If that doesn't happen:
+// 2. When the object becomes unreachable, AND the Cleaner thread gets to call `rustObject.free()`. If the thread is starved then:
+// 3. The memory is reclaimed when the process terminates.
+//
+// [1] https://stackoverflow.com/questions/24376768/can-java-finalize-an-object-when-it-is-still-in-scope/24380219
+//
+
+
+/**
+ * Represents a DID WEBVH, as specified at https://identity.foundation/didwebvh/v1.0/#method-specific-identifier:
+ *
+ * "The did:webvh method-specific identifier contains both the self-certifying identifier (SCID) for the DID,
+ * and a fully qualified domain name (with an optional path) that is secured by a TLS/SSL certificate."
+ */
+public interface WebVerifiableHistoryIdInterface {
+    
+    /**
+     * Returns the SCID part from the supplied DID.
+     */
+    fun `getScid`(): kotlin.String
+    
+    /**
+     * Returns the url part from the supplied DID WEBVH.
+     */
+    fun `getUrl`(): kotlin.String
+    
+    companion object
+}
+
+/**
+ * Represents a DID WEBVH, as specified at https://identity.foundation/didwebvh/v1.0/#method-specific-identifier:
+ *
+ * "The did:webvh method-specific identifier contains both the self-certifying identifier (SCID) for the DID,
+ * and a fully qualified domain name (with an optional path) that is secured by a TLS/SSL certificate."
+ */
+open class WebVerifiableHistoryId: Disposable, AutoCloseable, WebVerifiableHistoryIdInterface
+{
+
+    constructor(pointer: Pointer) {
+        this.pointer = pointer
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    }
+
+    /**
+     * This constructor can be used to instantiate a fake object. Only used for tests. Any
+     * attempt to actually use an object constructed this way will fail as there is no
+     * connected Rust object.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    constructor(noPointer: NoPointer) {
+        this.pointer = null
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    }
+
+    protected val pointer: Pointer?
+    protected val cleanable: UniffiCleaner.Cleanable
+
+    private val wasDestroyed = AtomicBoolean(false)
+    private val callCounter = AtomicLong(1)
+
+    override fun destroy() {
+        // Only allow a single call to this method.
+        // TODO: maybe we should log a warning if called more than once?
+        if (this.wasDestroyed.compareAndSet(false, true)) {
+            // This decrement always matches the initial count of 1 given at creation time.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable.clean()
+            }
+        }
+    }
+
+    @Synchronized
+    override fun close() {
+        this.destroy()
+    }
+
+    internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
+        // Check and increment the call counter, to keep the object alive.
+        // This needs a compare-and-set retry loop in case of concurrent updates.
+        do {
+            val c = this.callCounter.get()
+            if (c == 0L) {
+                throw IllegalStateException("${this.javaClass.simpleName} object has already been destroyed")
+            }
+            if (c == Long.MAX_VALUE) {
+                throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
+            }
+        } while (! this.callCounter.compareAndSet(c, c + 1L))
+        // Now we can safely do the method call without the pointer being freed concurrently.
+        try {
+            return block(this.uniffiClonePointer())
+        } finally {
+            // This decrement always matches the increment we performed above.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable.clean()
+            }
+        }
+    }
+
+    // Use a static inner class instead of a closure so as not to accidentally
+    // capture `this` as part of the cleanable's action.
+    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+        override fun run() {
+            pointer?.let { ptr ->
+                uniffiRustCall { status ->
+                    UniffiLib.INSTANCE.uniffi_did_webvh_fn_free_webverifiablehistoryid(ptr, status)
+                }
+            }
+        }
+    }
+
+    fun uniffiClonePointer(): Pointer {
+        return uniffiRustCall() { status ->
+            UniffiLib.INSTANCE.uniffi_did_webvh_fn_clone_webverifiablehistoryid(pointer!!, status)
+        }
+    }
+
+    
+    /**
+     * Returns the SCID part from the supplied DID.
+     */override fun `getScid`(): kotlin.String {
+            return FfiConverterString.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_did_webvh_fn_method_webverifiablehistoryid_get_scid(
+        it, _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Returns the url part from the supplied DID WEBVH.
+     */override fun `getUrl`(): kotlin.String {
+            return FfiConverterString.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_did_webvh_fn_method_webverifiablehistoryid_get_url(
+        it, _status)
+}
+    }
+    )
+    }
+    
+
+    
+
+    
+    companion object {
+        
+    /**
+     * The only (non-empty) constructor in charge of DID parsing.
+     *
+     * CAUTION Calling any of the available getters should take place after this method is called, not earlier.
+     */
+    @Throws(WebVerifiableHistoryIdResolutionException::class) fun `parseDidWebvh`(`didWebvh`: kotlin.String): WebVerifiableHistoryId {
+            return FfiConverterTypeWebVerifiableHistoryId.lift(
+    uniffiRustCallWithError(WebVerifiableHistoryIdResolutionException) { _status ->
+    UniffiLib.INSTANCE.uniffi_did_webvh_fn_constructor_webverifiablehistoryid_parse_did_webvh(
+        FfiConverterString.lower(`didWebvh`),_status)
+}
+    )
+    }
+    
+
+        
+    }
+    
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeWebVerifiableHistoryId: FfiConverter<WebVerifiableHistoryId, Pointer> {
+
+    override fun lower(value: WebVerifiableHistoryId): Pointer {
+        return value.uniffiClonePointer()
+    }
+
+    override fun lift(value: Pointer): WebVerifiableHistoryId {
+        return WebVerifiableHistoryId(value)
+    }
+
+    override fun read(buf: ByteBuffer): WebVerifiableHistoryId {
+        // The Rust code always writes pointers as 8 bytes, and will
+        // fail to compile if they don't fit.
+        return lift(Pointer(buf.getLong()))
+    }
+
+    override fun allocationSize(value: WebVerifiableHistoryId) = 8UL
+
+    override fun write(value: WebVerifiableHistoryId, buf: ByteBuffer) {
         // The Rust code always expects pointers written as 8 bytes,
         // and will fail to compile if they don't fit.
         buf.putLong(Pointer.nativeValue(lower(value)))
@@ -1406,72 +1814,218 @@ public object FfiConverterTypeDid: FfiConverter<Did, Pointer> {
 
 
 
+/**
+ * W.r.t. corresponding specification version available at https://identity.foundation/didwebvh
+ *
+ * # CAUTION The single currently supported `didwebvh` specification version is: v1.0
+ */
+
+enum class WebVerifiableHistoryDidLogEntryJsonSchema {
+    
+    /**
+     * As defined by https://identity.foundation/didwebvh/v1.0 but w.r.t. (eID-conformity) addendum:
+     * - https://confluence.bit.admin.ch/x/r_0EMw (DID Log Conformity Check)
+     * - https://confluence.bit.admin.ch/x/3e0EMw (DID Doc Conformity Check)
+     */
+    V1_0EID_CONFORM,
+    /**
+     * As (strictly) specified by https://identity.foundation/didwebvh/v1.0
+     */
+    V1_0;
+    companion object
+}
 
 
-sealed class DidResolveException(message: String): kotlin.Exception(message) {
+/**
+ * @suppress
+ */
+public object FfiConverterTypeWebVerifiableHistoryDidLogEntryJsonSchema: FfiConverterRustBuffer<WebVerifiableHistoryDidLogEntryJsonSchema> {
+    override fun read(buf: ByteBuffer) = try {
+        WebVerifiableHistoryDidLogEntryJsonSchema.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: WebVerifiableHistoryDidLogEntryJsonSchema) = 4UL
+
+    override fun write(value: WebVerifiableHistoryDidLogEntryJsonSchema, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
+
+
+/**
+ * The error accompanying `WebVerifiableHistory`.
+ * It might occur while calling some of the `WebVerifiableHistory` constructors/methods.
+ */
+sealed class WebVerifiableHistoryException(message: String): kotlin.Exception(message) {
         
     /**
-     * The supplied DID is not supported. Currently supported are: did:tdw, did:webvh
+     * DID method is not supported by this resolver.
      */
-        class DidNotSupported(message: String) : DidResolveException(message)
+        class MethodNotSupported(message: String) : WebVerifiableHistoryException(message)
         
     /**
-     * The supplied DID is supported, but is malformed
+     * Invalid method-specific identifier.
      */
-        class MalformedDid(message: String) : DidResolveException(message)
+        class InvalidMethodSpecificId(message: String) : WebVerifiableHistoryException(message)
         
     /**
-     * The supplied DID log is invalid
+     * Failed to serialize DID document (to JSON).
      */
-        class InvalidDidLog(message: String) : DidResolveException(message)
+        class SerializationFailed(message: String) : WebVerifiableHistoryException(message)
         
     /**
-     * The supplied DID log is valid, but it features invalid DID Doc
+     * The supplied did doc is invalid or contains an argument which isn't part of the did specification/recommendation.
      */
-        class InvalidDidDoc(message: String) : DidResolveException(message)
+        class DeserializationFailed(message: String) : WebVerifiableHistoryException(message)
+        
+    /**
+     * Invalid (or not yet supported) operation against DID doc.
+     */
+        class InvalidOperation(message: String) : WebVerifiableHistoryException(message)
+        
+    /**
+     * Invalid DID parameter.
+     */
+        class InvalidDidParameter(message: String) : WebVerifiableHistoryException(message)
+        
+    /**
+     * Invalid DID document.
+     */
+        class InvalidDidDocument(message: String) : WebVerifiableHistoryException(message)
+        
+    /**
+     * Invalid DID log integration proof.
+     */
+        class InvalidDataIntegrityProof(message: String) : WebVerifiableHistoryException(message)
         
 
-    companion object ErrorHandler : UniffiRustCallStatusErrorHandler<DidResolveException> {
-        override fun lift(error_buf: RustBuffer.ByValue): DidResolveException = FfiConverterTypeDidResolveError.lift(error_buf)
+    companion object ErrorHandler : UniffiRustCallStatusErrorHandler<WebVerifiableHistoryException> {
+        override fun lift(error_buf: RustBuffer.ByValue): WebVerifiableHistoryException = FfiConverterTypeWebVerifiableHistoryError.lift(error_buf)
     }
 }
 
 /**
  * @suppress
  */
-public object FfiConverterTypeDidResolveError : FfiConverterRustBuffer<DidResolveException> {
-    override fun read(buf: ByteBuffer): DidResolveException {
+public object FfiConverterTypeWebVerifiableHistoryError : FfiConverterRustBuffer<WebVerifiableHistoryException> {
+    override fun read(buf: ByteBuffer): WebVerifiableHistoryException {
         
             return when(buf.getInt()) {
-            1 -> DidResolveException.DidNotSupported(FfiConverterString.read(buf))
-            2 -> DidResolveException.MalformedDid(FfiConverterString.read(buf))
-            3 -> DidResolveException.InvalidDidLog(FfiConverterString.read(buf))
-            4 -> DidResolveException.InvalidDidDoc(FfiConverterString.read(buf))
+            1 -> WebVerifiableHistoryException.MethodNotSupported(FfiConverterString.read(buf))
+            2 -> WebVerifiableHistoryException.InvalidMethodSpecificId(FfiConverterString.read(buf))
+            3 -> WebVerifiableHistoryException.SerializationFailed(FfiConverterString.read(buf))
+            4 -> WebVerifiableHistoryException.DeserializationFailed(FfiConverterString.read(buf))
+            5 -> WebVerifiableHistoryException.InvalidOperation(FfiConverterString.read(buf))
+            6 -> WebVerifiableHistoryException.InvalidDidParameter(FfiConverterString.read(buf))
+            7 -> WebVerifiableHistoryException.InvalidDidDocument(FfiConverterString.read(buf))
+            8 -> WebVerifiableHistoryException.InvalidDataIntegrityProof(FfiConverterString.read(buf))
             else -> throw RuntimeException("invalid error enum value, something is very wrong!!")
         }
         
     }
 
-    override fun allocationSize(value: DidResolveException): ULong {
+    override fun allocationSize(value: WebVerifiableHistoryException): ULong {
         return 4UL
     }
 
-    override fun write(value: DidResolveException, buf: ByteBuffer) {
+    override fun write(value: WebVerifiableHistoryException, buf: ByteBuffer) {
         when(value) {
-            is DidResolveException.DidNotSupported -> {
+            is WebVerifiableHistoryException.MethodNotSupported -> {
                 buf.putInt(1)
                 Unit
             }
-            is DidResolveException.MalformedDid -> {
+            is WebVerifiableHistoryException.InvalidMethodSpecificId -> {
                 buf.putInt(2)
                 Unit
             }
-            is DidResolveException.InvalidDidLog -> {
+            is WebVerifiableHistoryException.SerializationFailed -> {
                 buf.putInt(3)
                 Unit
             }
-            is DidResolveException.InvalidDidDoc -> {
+            is WebVerifiableHistoryException.DeserializationFailed -> {
                 buf.putInt(4)
+                Unit
+            }
+            is WebVerifiableHistoryException.InvalidOperation -> {
+                buf.putInt(5)
+                Unit
+            }
+            is WebVerifiableHistoryException.InvalidDidParameter -> {
+                buf.putInt(6)
+                Unit
+            }
+            is WebVerifiableHistoryException.InvalidDidDocument -> {
+                buf.putInt(7)
+                Unit
+            }
+            is WebVerifiableHistoryException.InvalidDataIntegrityProof -> {
+                buf.putInt(8)
+                Unit
+            }
+        }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }
+    }
+
+}
+
+
+
+
+
+/**
+ * The error accompanying WebVerifiableHistoryId.
+ * It might occur while calling WebVerifiableHistoryId methods.
+ */
+sealed class WebVerifiableHistoryIdResolutionException(message: String): kotlin.Exception(message) {
+        
+    /**
+     * DID method is not supported by this resolver.
+     */
+        class MethodNotSupported(message: String) : WebVerifiableHistoryIdResolutionException(message)
+        
+    /**
+     * Invalid method-specific identifier.
+     */
+        class InvalidMethodSpecificId(message: String) : WebVerifiableHistoryIdResolutionException(message)
+        
+
+    companion object ErrorHandler : UniffiRustCallStatusErrorHandler<WebVerifiableHistoryIdResolutionException> {
+        override fun lift(error_buf: RustBuffer.ByValue): WebVerifiableHistoryIdResolutionException = FfiConverterTypeWebVerifiableHistoryIdResolutionError.lift(error_buf)
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeWebVerifiableHistoryIdResolutionError : FfiConverterRustBuffer<WebVerifiableHistoryIdResolutionException> {
+    override fun read(buf: ByteBuffer): WebVerifiableHistoryIdResolutionException {
+        
+            return when(buf.getInt()) {
+            1 -> WebVerifiableHistoryIdResolutionException.MethodNotSupported(FfiConverterString.read(buf))
+            2 -> WebVerifiableHistoryIdResolutionException.InvalidMethodSpecificId(FfiConverterString.read(buf))
+            else -> throw RuntimeException("invalid error enum value, something is very wrong!!")
+        }
+        
+    }
+
+    override fun allocationSize(value: WebVerifiableHistoryIdResolutionException): ULong {
+        return 4UL
+    }
+
+    override fun write(value: WebVerifiableHistoryIdResolutionException, buf: ByteBuffer) {
+        when(value) {
+            is WebVerifiableHistoryIdResolutionException.MethodNotSupported -> {
+                buf.putInt(1)
+                Unit
+            }
+            is WebVerifiableHistoryIdResolutionException.InvalidMethodSpecificId -> {
+                buf.putInt(2)
                 Unit
             }
         }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }
