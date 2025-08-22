@@ -1979,8 +1979,8 @@ public object FfiConverterTypeWebVerifiableHistoryError : FfiConverterRustBuffer
 
 
 /**
- * The error accompanying WebVerifiableHistoryId.
- * It might occur while calling WebVerifiableHistoryId methods.
+ * The error accompanying `WebVerifiableHistoryId`.
+ * It might occur while calling `WebVerifiableHistoryId` methods.
  */
 sealed class WebVerifiableHistoryIdResolutionException(message: String): kotlin.Exception(message) {
         

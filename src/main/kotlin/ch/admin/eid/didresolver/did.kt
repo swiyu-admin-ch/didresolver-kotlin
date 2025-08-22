@@ -723,6 +723,8 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
 // For large crates we prevent `MethodTooLargeException` (see #2340)
 // N.B. the name of the extension is very misleading, since it is 
 // rather `InterfaceTooLargeException`, caused by too many methods 
@@ -738,7 +740,9 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 // when the library is loaded.
 internal interface IntegrityCheckingUniffiLib : Library {
     // Integrity check functions only
-    fun uniffi_didresolver_checksum_method_did_get_url(
+    fun uniffi_didresolver_checksum_method_did_get_https_url(
+): Short
+fun uniffi_didresolver_checksum_method_did_get_url(
 ): Short
 fun uniffi_didresolver_checksum_method_did_resolve(
 ): Short
@@ -798,11 +802,13 @@ internal interface UniffiLib : Library {
 ): Pointer
 fun uniffi_didresolver_fn_free_did(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
-fun uniffi_didresolver_fn_constructor_did_new(`didTdw`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+fun uniffi_didresolver_fn_constructor_did_new(`did`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): Pointer
+fun uniffi_didresolver_fn_method_did_get_https_url(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
 fun uniffi_didresolver_fn_method_did_get_url(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
-fun uniffi_didresolver_fn_method_did_resolve(`ptr`: Pointer,`didTdwLog`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+fun uniffi_didresolver_fn_method_did_resolve(`ptr`: Pointer,`didLog`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): Pointer
 fun ffi_didresolver_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
@@ -930,13 +936,16 @@ private fun uniffiCheckContractApiVersion(lib: IntegrityCheckingUniffiLib) {
 }
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
+    if (lib.uniffi_didresolver_checksum_method_did_get_https_url() != 30633.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_didresolver_checksum_method_did_get_url() != 12137.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_didresolver_checksum_method_did_resolve() != 55284.toShort()) {
+    if (lib.uniffi_didresolver_checksum_method_did_resolve() != 7445.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_didresolver_checksum_constructor_did_new() != 3590.toShort()) {
+    if (lib.uniffi_didresolver_checksum_constructor_did_new() != 33055.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
 }
@@ -1238,18 +1247,49 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
 //
 
 
+/**
+ * Represents a Decentralized Identifier (DID) in terms of DID Web + Verifiable History (`did:webvh`)
+ * that is an enhancement to the `did:web` DID method, providing complementary features, as specified by
+ * https://identity.foundation/didwebvh.
+ *
+ * Also, the legacy DID method `did:tdw` is supported as well.
+ */
 public interface DidInterface {
     
     /**
-     * Returns the url part from the supplied DID, if supported and not malformed.
+     * Returns the HTTPS URL "transformed" (w.r.t. https://identity.foundation/didwebvh/next/#the-did-to-https-transformation)
+     * from the DID supplied via constructor.
+     */
+    fun `getHttpsUrl`(): kotlin.String
+    
+    /**
+     * Returns the HTTPS URL "transformed" (w.r.t. https://identity.foundation/didwebvh/next/#the-did-to-https-transformation)
+     * from the DID supplied via constructor.
+     *
+     * @deprecated as of 2.2.0 replaced by `get_https_url`
      */
     fun `getUrl`(): kotlin.String
     
-    fun `resolve`(`didTdwLog`: kotlin.String): DidDoc
+    /**
+     * The essential method of `Did` implementing the "Read (Resolve)" DID method operation for either a
+     * `did:tdw:0.3` (w.r.t. https://identity.foundation/didwebvh/v0.3/#read-resolve) or a
+     * `did:webvh:1.0` DID (w.r.t. https://identity.foundation/didwebvh/v1.0/#read-resolve).
+     *
+     * In case of error, the available `DidResolveError` object features all the detailed
+     * information required to narrow down the root cause.
+     */
+    fun `resolve`(`didLog`: kotlin.String): DidDoc
     
     companion object
 }
 
+/**
+ * Represents a Decentralized Identifier (DID) in terms of DID Web + Verifiable History (`did:webvh`)
+ * that is an enhancement to the `did:web` DID method, providing complementary features, as specified by
+ * https://identity.foundation/didwebvh.
+ *
+ * Also, the legacy DID method `did:tdw` is supported as well.
+ */
 open class Did: Disposable, AutoCloseable, DidInterface
 {
 
@@ -1268,11 +1308,22 @@ open class Did: Disposable, AutoCloseable, DidInterface
         this.pointer = null
         this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
     }
-    constructor(`didTdw`: kotlin.String) :
+    /**
+     * The single constructor of `Did` expecting a
+     * DID method-specific identifier (defined as https://identity.foundation/didwebvh/next/#method-specific-identifier) as either a
+     * `did:tdw:0.3` DID (w.r.t. https://identity.foundation/didwebvh/v0.3) or a
+     * `did:webvh:1.0` DID (w.r.t. https://identity.foundation/didwebvh/v1.0).
+     *
+     * The constructor will attempt to *transform* (w.r.t. https://identity.foundation/didwebvh/next/#the-did-to-https-transformation)
+     * the supplied DID method identifier into a valid RFC3986-conform HTTPS URL thus enabling retrival
+     * of its DID log (via an `HTTP GET`). In case of error, the available `DidResolveError`
+     * object features all the detailed information required to narrow down the root cause.
+     */
+    constructor(`did`: kotlin.String) :
         this(
     uniffiRustCallWithError(DidResolveException) { _status ->
     UniffiLib.INSTANCE.uniffi_didresolver_fn_constructor_did_new(
-        FfiConverterString.lower(`didTdw`),_status)
+        FfiConverterString.lower(`did`),_status)
 }
     )
 
@@ -1341,7 +1392,26 @@ open class Did: Disposable, AutoCloseable, DidInterface
 
     
     /**
-     * Returns the url part from the supplied DID, if supported and not malformed.
+     * Returns the HTTPS URL "transformed" (w.r.t. https://identity.foundation/didwebvh/next/#the-did-to-https-transformation)
+     * from the DID supplied via constructor.
+     */override fun `getHttpsUrl`(): kotlin.String {
+            return FfiConverterString.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_didresolver_fn_method_did_get_https_url(
+        it, _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Returns the HTTPS URL "transformed" (w.r.t. https://identity.foundation/didwebvh/next/#the-did-to-https-transformation)
+     * from the DID supplied via constructor.
+     *
+     * @deprecated as of 2.2.0 replaced by `get_https_url`
      */
     @Throws(DidResolveException::class)override fun `getUrl`(): kotlin.String {
             return FfiConverterString.lift(
@@ -1356,12 +1426,20 @@ open class Did: Disposable, AutoCloseable, DidInterface
     
 
     
-    @Throws(DidResolveException::class)override fun `resolve`(`didTdwLog`: kotlin.String): DidDoc {
+    /**
+     * The essential method of `Did` implementing the "Read (Resolve)" DID method operation for either a
+     * `did:tdw:0.3` (w.r.t. https://identity.foundation/didwebvh/v0.3/#read-resolve) or a
+     * `did:webvh:1.0` DID (w.r.t. https://identity.foundation/didwebvh/v1.0/#read-resolve).
+     *
+     * In case of error, the available `DidResolveError` object features all the detailed
+     * information required to narrow down the root cause.
+     */
+    @Throws(DidResolveException::class)override fun `resolve`(`didLog`: kotlin.String): DidDoc {
             return FfiConverterTypeDidDoc.lift(
     callWithPointer {
     uniffiRustCallWithError(DidResolveException) { _status ->
     UniffiLib.INSTANCE.uniffi_didresolver_fn_method_did_resolve(
-        it, FfiConverterString.lower(`didTdwLog`),_status)
+        it, FfiConverterString.lower(`didLog`),_status)
 }
     }
     )
@@ -1408,6 +1486,10 @@ public object FfiConverterTypeDid: FfiConverter<Did, Pointer> {
 
 
 
+/**
+ * The error accompanying `Did`.
+ * It might occur while calling some of the `Did` constructors/methods.
+ */
 sealed class DidResolveException(message: String): kotlin.Exception(message) {
         
     /**
