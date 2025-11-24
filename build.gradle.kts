@@ -9,7 +9,7 @@ plugins {
 // CAUTION Until 2.0.1 (GitHub packages), the "group" was set to "ch.admin.eid".
 //         For the sake of Maven Central publishing, it must now match the Maven Central namespace
 group = "io.github.swiyu-admin-ch"
-version = "2.3.0"
+version = "2.4.0"
 
 repositories {
     // Use Maven Central for resolving dependencies.
@@ -32,7 +32,7 @@ publishing {
         register<MavenPublication>("gpr") {
             groupId = "ch.admin.eid"
             artifactId = "didresolver"
-            version = "2.3.0"
+            version = "2.4.0"
             from(components["kotlin"])
         }
     }
