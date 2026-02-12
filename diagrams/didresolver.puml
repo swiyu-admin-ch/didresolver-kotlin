@@ -1,0 +1,131 @@
+@startuml
+!pragma useIntermediatePackages false
+hide empty members
+show stereotype
+
+class "DidDoc" as ch.admin.eid.did_sidekicks.DidDoc {
+  +void destroy()
+  +void close()
+  +R callWithPointer$didresolver_kotlin(Function1<? super Pointer, ? extends R>)
+  +Pointer uniffiClonePointer()
+  +List<VerificationMethod> getAssertionMethod()
+  +List<VerificationMethod> getAuthentication()
+  +List<VerificationMethod> getCapabilityDelegation()
+  +List<VerificationMethod> getCapabilityInvocation()
+  +List<String> getContext()
+  +List<String> getController()
+  +boolean getDeactivated()
+  +String getId()
+  +Jwk getKey(String)
+  +List<VerificationMethod> getVerificationMethod()
+  +String toJson()
+}
+class "DidDocExtended" as ch.admin.eid.did_sidekicks.DidDocExtended {
+  +void destroy()
+  +void close()
+  +R callWithPointer$didresolver_kotlin(Function1<? super Pointer, ? extends R>)
+  +Pointer uniffiClonePointer()
+  +DidDoc getDidDoc()
+  +Map<String, DidMethodParameter> getDidMethodParameters()
+}
+class "DidMethodParameter" as ch.admin.eid.did_sidekicks.DidMethodParameter {
+  +void destroy()
+  +void close()
+  +R callWithPointer$didresolver_kotlin(Function1<? super Pointer, ? extends R>)
+  +Pointer uniffiClonePointer()
+  +Boolean getBoolValue()
+  +Double getF64Value()
+  +Long getI64Value()
+  +String getJsonText()
+  +String getName()
+  +List<String> getStringArrayValue()
+  +String getStringValue()
+  +ULong getU64Value-6VbMDqA()
+  +boolean isArray()
+  +boolean isBool()
+  +boolean isEmptyArray()
+  +boolean isF64()
+  +boolean isI64()
+  +boolean isNull()
+  +boolean isObject()
+  +boolean isString()
+  +boolean isStringArray()
+  +boolean isU64()
+}
+class "Jwk" as ch.admin.eid.did_sidekicks.Jwk {
+  +String getAlg()
+  +void setAlg(String)
+  +String getKid()
+  +void setKid(String)
+  +String getKty()
+  +void setKty(String)
+  +String getCrv()
+  +void setCrv(String)
+  +String getX()
+  +void setX(String)
+  +String getY()
+  +void setY(String)
+  +String component1()
+  +String component2()
+  +String component3()
+  +String component4()
+  +String component5()
+  +String component6()
+  +Jwk copy(String, String, String, String, String, String)
+}
+class "VerificationMethod" as ch.admin.eid.did_sidekicks.VerificationMethod {
+  +String getId()
+  +void setId(String)
+  +String getController()
+  +void setController(String)
+  +VerificationType getVerificationType()
+  +void setVerificationType(VerificationType)
+  +String getPublicKeyMultibase()
+  +void setPublicKeyMultibase(String)
+  +Jwk getPublicKeyJwk()
+  +void setPublicKeyJwk(Jwk)
+  +String component1()
+  +String component2()
+  +VerificationType component3()
+  +String component4()
+  +Jwk component5()
+  +VerificationMethod copy(String, String, VerificationType, String, Jwk)
+}
+class "Did" as ch.admin.eid.didresolver.Did {
+  +void destroy()
+  +void close()
+  +R callWithPointer$didresolver_kotlin(Function1<? super Pointer, ? extends R>)
+  +Pointer uniffiClonePointer()
+  +String getHttpsUrl()
+  +DidMethod getMethod()
+  +String getScid()
+  +String getUrl()
+  +DidDoc resolve(String)
+  +DidDocExtended resolveAll(String)
+}
+abstract class "DidMethod" as ch.admin.eid.didresolver.DidMethod {
+}
+class "DidMethod$Tdw" as ch.admin.eid.didresolver.DidMethod$Tdw {
+  +String getScid()
+  +String getHttpsUrl()
+  +String component1()
+  +String component2()
+  +Tdw copy(String, String)
+}
+class "DidMethod$Unknown" as ch.admin.eid.didresolver.DidMethod$Unknown {
+}
+class "DidMethod$Webvh" as ch.admin.eid.didresolver.DidMethod$Webvh {
+  +String getScid()
+  +String getHttpsUrl()
+  +String component1()
+  +String component2()
+  +Webvh copy(String, String)
+}
+abstract class "DidResolveException" as ch.admin.eid.didresolver.DidResolveException {
+}
+ch.admin.eid.did_sidekicks.VerificationMethod --> ch.admin.eid.did_sidekicks.Jwk
+ch.admin.eid.didresolver.DidMethod$Tdw -u-|> ch.admin.eid.didresolver.DidMethod
+ch.admin.eid.didresolver.DidMethod$Unknown -u-|> ch.admin.eid.didresolver.DidMethod
+ch.admin.eid.didresolver.DidMethod$Unknown --> ch.admin.eid.didresolver.DidMethod$Unknown
+ch.admin.eid.didresolver.DidMethod$Webvh -u-|> ch.admin.eid.didresolver.DidMethod
+@enduml

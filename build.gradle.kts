@@ -1,6 +1,8 @@
 plugins {
     kotlin("jvm") version "1.9.23"
     `maven-publish`
+    // see https://gitlab.com/Plunts/plantuml-gradle-plugin
+    id("io.gitlab.plunts.plantuml") version "2.3.0"
     // As suggested by https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-publish-libraries.html
     // see https://vanniktech.github.io/gradle-maven-publish-plugin/
     id("com.vanniktech.maven.publish") version "0.31.0"
@@ -24,6 +26,50 @@ dependencies {
 
 kotlin {
     jvmToolchain(21)
+}
+
+// Just run: ./gradlew generateClassDiagrams
+classDiagrams {
+    diagram {
+        // this server is the default, so skip this if you don't mind your diagrams being sent there
+        //plantumlServer = null // optional, avoids surprises on configuration errors
+        //renderClasspath = null
+
+        //name("Visualise didresolver Package")
+
+        // All properties are also available (and most likely more suited) in the defaults
+        // For more information see official PlantUML documentation: https://plantuml.com/en/class-diagram
+        style {
+            //include("default_style.puml")
+            //useIntermediatePackages()
+            // see https://the-lum.github.io/puml-themes-gallery/themes/index.html
+            //theme("sketchy")
+            hide("empty members")
+            show("stereotype")
+        }
+
+        //include(packages().withName("ch.admin.eid.didresolver"))
+        include(classes().withNameLike("ch.admin.eid.did_sidekicks.DidDoc*").insideOfProject())
+        include(classes().withNameLike("ch.admin.eid.did_sidekicks.DidMethod*").insideOfProject())
+        include(classes().withNameLike("ch.admin.eid.did_sidekicks.Jwk*").insideOfProject())
+        include(classes().withNameLike("ch.admin.eid.did_sidekicks.VerificationMethod*").insideOfProject())
+        exclude(classes().withNameLike("ch.admin.eid.did_sidekicks.*Uniffi*").insideOfProject())
+        exclude(classes().withNameLike("ch.admin.eid.did_sidekicks.*Interface*").insideOfProject())
+        exclude(classes().withNameLike("ch.admin.eid.did_sidekicks.*Companion*").insideOfProject())
+        include(classes().withNameLike("ch.admin.eid.didresolver.Did*").insideOfProject())
+        exclude(classes().withNameLike("ch.admin.eid.didresolver.DidResolveException$[A-Z]*").insideOfProject())
+        exclude(classes().withNameLike("ch.admin.eid.didresolver.*Kt").insideOfProject())
+        exclude(classes().withNameLike("ch.admin.eid.didresolver.*Uniffi*").insideOfProject())
+        exclude(classes().withNameLike("ch.admin.eid.didresolver.*Interface*").insideOfProject())
+        exclude(classes().withNameLike("ch.admin.eid.didresolver.*Companion*").insideOfProject())
+        //include(methods().thatArePublic())
+        //exclude(methods().withNameLike("*uniffi*"))
+        exclude(interfaces())
+        exclude(fields())
+        writeTo(file("diagrams/didresolver.puml"))
+        renderTo(file("diagrams/didresolver.svg"))
+        //renderTo(file("diagrams/didresolver.png"))
+    }
 }
 
 /*

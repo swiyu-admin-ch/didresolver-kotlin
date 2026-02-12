@@ -24,6 +24,12 @@ implementation("io.github.swiyu-admin-ch:didresolver:[ANY_AVAILABLE_VERSION]")
 
 You are more then welcome to explore the relevant [examples](https://github.com/swiyu-admin-ch/didresolver-examples) in a further detail.
 
+## The DID Resolver (Kotlin/Java) API
+
+The sole bedrock of DID Resolver (Kotlin/Java) API are the classes residing in the `ch.admin.eid.didresolver` package:
+
+![didresolver-classes-only](./diagrams/didresolver.svg)
+
 ## Contributions and feedback
 
 We welcome any feedback on the code regarding both the implementation and security aspects. Please follow the guidelines for contributing found in [CONTRIBUTING](./CONTRIBUTING.md).
