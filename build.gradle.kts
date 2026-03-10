@@ -1,8 +1,11 @@
 plugins {
     kotlin("jvm") version "1.9.23"
+    //kotlin("jvm") version "2.3.10"
     `maven-publish`
     // see https://gitlab.com/Plunts/plantuml-gradle-plugin
     id("io.gitlab.plunts.plantuml") version "2.3.0"
+    // see https://kotlinlang.org/docs/dokka-javadoc.html#generate-javadoc-documentation
+    id("org.jetbrains.dokka-javadoc") version "2.1.0"
     // As suggested by https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-publish-libraries.html
     // see https://vanniktech.github.io/gradle-maven-publish-plugin/
     id("com.vanniktech.maven.publish") version "0.31.0"
@@ -10,7 +13,7 @@ plugins {
 
 // CAUTION Until 2.0.1 (GitHub packages), the "group" was set to "ch.admin.eid".
 //         For the sake of Maven Central publishing, it must now match the Maven Central namespace
-group = "io.github.swiyu-admin-ch"
+group = "ch.admin.swiyu"
 version = "2.6.0"
 
 repositories {
@@ -26,6 +29,13 @@ dependencies {
 
 kotlin {
     jvmToolchain(21)
+}
+
+// To generate documentation in Javadoc, just run: ./gradlew :dokkaJavadocJar
+val dokkaJavadocJar by tasks.registering(Jar::class) {
+    //description = "A Javadoc JAR containing Dokka Javadoc"
+    from(tasks.dokkaGeneratePublicationJavadoc.flatMap { it.outputDirectory })
+    archiveClassifier.set("javadoc")
 }
 
 // Just run: ./gradlew generateClassDiagrams
