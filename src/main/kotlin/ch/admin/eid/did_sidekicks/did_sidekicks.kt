@@ -887,6 +887,12 @@ internal open class UniffiVTableCallbackInterfaceDidLogEntryJsonSchema(
 
 
 
+
+
+
+
+
+
 // For large crates we prevent `MethodTooLargeException` (see #2340)
 // N.B. the name of the extension is very misleading, since it is 
 // rather `InterfaceTooLargeException`, caused by too many methods 
@@ -921,6 +927,12 @@ fun uniffi_did_sidekicks_checksum_method_diddoc_get_deactivated(
 fun uniffi_did_sidekicks_checksum_method_diddoc_get_id(
 ): Short
 fun uniffi_did_sidekicks_checksum_method_diddoc_get_key(
+): Short
+fun uniffi_did_sidekicks_checksum_method_diddoc_get_key_by_fragment(
+): Short
+fun uniffi_did_sidekicks_checksum_method_diddoc_get_key_by_method_id(
+): Short
+fun uniffi_did_sidekicks_checksum_method_diddoc_get_profile_version(
 ): Short
 fun uniffi_did_sidekicks_checksum_method_diddoc_get_verification_method(
 ): Short
@@ -1121,6 +1133,12 @@ fun uniffi_did_sidekicks_fn_method_diddoc_get_id(`ptr`: Pointer,uniffi_out_err: 
 ): RustBuffer.ByValue
 fun uniffi_did_sidekicks_fn_method_diddoc_get_key(`ptr`: Pointer,`keyId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
+fun uniffi_did_sidekicks_fn_method_diddoc_get_key_by_fragment(`ptr`: Pointer,`keyId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_did_sidekicks_fn_method_diddoc_get_key_by_method_id(`ptr`: Pointer,`keyId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_did_sidekicks_fn_method_diddoc_get_profile_version(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
 fun uniffi_did_sidekicks_fn_method_diddoc_get_verification_method(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
 fun uniffi_did_sidekicks_fn_method_diddoc_to_json(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
@@ -1215,7 +1233,7 @@ fun uniffi_did_sidekicks_fn_method_ed25519signingkey_get_verifying_key(`ptr`: Po
 ): Pointer
 fun uniffi_did_sidekicks_fn_method_ed25519signingkey_sign(`ptr`: Pointer,`message`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): Pointer
-fun uniffi_did_sidekicks_fn_method_ed25519signingkey_sign_hex(`ptr`: Pointer,`message`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+fun uniffi_did_sidekicks_fn_method_ed25519signingkey_sign_hex(`ptr`: Pointer,`messageHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): Pointer
 fun uniffi_did_sidekicks_fn_method_ed25519signingkey_to_multibase(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
@@ -1407,7 +1425,7 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_context() != 58325.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_controller() != 37037.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_controller() != 4602.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_deactivated() != 2048.toShort()) {
@@ -1417,6 +1435,15 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_key() != 61960.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_key_by_fragment() != 52536.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_key_by_method_id() != 36535.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_profile_version() != 18008.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_verification_method() != 62805.toShort()) {
@@ -1503,7 +1530,7 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_did_sidekicks_checksum_method_ed25519signingkey_sign() != 44879.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_ed25519signingkey_sign_hex() != 37320.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_ed25519signingkey_sign_hex() != 43226.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_did_sidekicks_checksum_method_ed25519signingkey_to_multibase() != 57237.toShort()) {
@@ -2501,14 +2528,14 @@ public interface DidDocInterface {
     
     fun `getContext`(): List<kotlin.String>
     
-    fun `getController`(): List<kotlin.String>
+    fun `getController`(): kotlin.String?
     
     fun `getDeactivated`(): kotlin.Boolean
     
     fun `getId`(): kotlin.String
     
     /**
-     * Returns a cryptographic public key (`Jwk`) referenced by the supplied `key_id`, if any.
+     * Returns a cryptographic public key ([`Jwk`]) referenced by the supplied fragment (`key_id`), if any.
      * The key lookup is always done across all verification methods (`verificationMethod`) and
      * verification relationships
      * (`authentication`, `assertionMethod`, `keyAgreement`, `capabilityInvocation`, `capabilityInvocation`).
@@ -2517,10 +2544,39 @@ public interface DidDocInterface {
      */
     fun `getKey`(`keyId`: kotlin.String): Jwk
     
+    /**
+     * Returns a cryptographic public key ([`Jwk`]) referenced by the supplied fragment (`key_id`), if any.
+     * The key lookup is always done across all verification methods (`verificationMethod`) and
+     * verification relationships
+     * (`authentication`, `assertionMethod`, `keyAgreement`, `capabilityInvocation`, `capabilityInvocation`).
+     *
+     * If no such key exists, `DidSidekicksError::KeyNotFound` is returned.
+     */
+    fun `getKeyByFragment`(`keyId`: kotlin.String): Jwk
+    
+    /**
+     * Returns a cryptographic public key ([`Jwk`]) referenced by the supplied id of the
+     * verification method, if any.
+     * The key lookup is always done across all verification methods (`verificationMethod`) and
+     * verification relationships
+     * (`authentication`, `assertionMethod`, `keyAgreement`, `capabilityInvocation`, `capabilityInvocation`).
+     *
+     * If no such key exists, `DidSidekicksError::KeyNotFound` is returned.
+     */
+    fun `getKeyByMethodId`(`keyId`: kotlin.String): Jwk
+    
+    fun `getProfileVersion`(): kotlin.String?
+    
     fun `getVerificationMethod`(): List<VerificationMethod>
     
     /**
      * Serializes this `DidDoc` object as a `String` of JSON.
+     *
+     * The `SerializationFailed` error code denotes a serialization failure:
+     *
+     * - if `DidDoc`'s implementation of [`Serialize`] decides to fail, or
+     *
+     * - if `DidDoc` contains a map with non-string keys.
      */
     fun `toJson`(): kotlin.String
     
@@ -2669,8 +2725,8 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
     }
     
 
-    override fun `getController`(): List<kotlin.String> {
-            return FfiConverterSequenceString.lift(
+    override fun `getController`(): kotlin.String? {
+            return FfiConverterOptionalString.lift(
     callWithPointer {
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_controller(
@@ -2707,7 +2763,7 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
 
     
     /**
-     * Returns a cryptographic public key (`Jwk`) referenced by the supplied `key_id`, if any.
+     * Returns a cryptographic public key ([`Jwk`]) referenced by the supplied fragment (`key_id`), if any.
      * The key lookup is always done across all verification methods (`verificationMethod`) and
      * verification relationships
      * (`authentication`, `assertionMethod`, `keyAgreement`, `capabilityInvocation`, `capabilityInvocation`).
@@ -2720,6 +2776,61 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
     uniffiRustCallWithError(DidSidekicksException) { _status ->
     UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_key(
         it, FfiConverterString.lower(`keyId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Returns a cryptographic public key ([`Jwk`]) referenced by the supplied fragment (`key_id`), if any.
+     * The key lookup is always done across all verification methods (`verificationMethod`) and
+     * verification relationships
+     * (`authentication`, `assertionMethod`, `keyAgreement`, `capabilityInvocation`, `capabilityInvocation`).
+     *
+     * If no such key exists, `DidSidekicksError::KeyNotFound` is returned.
+     */
+    @Throws(DidSidekicksException::class)override fun `getKeyByFragment`(`keyId`: kotlin.String): Jwk {
+            return FfiConverterTypeJwk.lift(
+    callWithPointer {
+    uniffiRustCallWithError(DidSidekicksException) { _status ->
+    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_key_by_fragment(
+        it, FfiConverterString.lower(`keyId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Returns a cryptographic public key ([`Jwk`]) referenced by the supplied id of the
+     * verification method, if any.
+     * The key lookup is always done across all verification methods (`verificationMethod`) and
+     * verification relationships
+     * (`authentication`, `assertionMethod`, `keyAgreement`, `capabilityInvocation`, `capabilityInvocation`).
+     *
+     * If no such key exists, `DidSidekicksError::KeyNotFound` is returned.
+     */
+    @Throws(DidSidekicksException::class)override fun `getKeyByMethodId`(`keyId`: kotlin.String): Jwk {
+            return FfiConverterTypeJwk.lift(
+    callWithPointer {
+    uniffiRustCallWithError(DidSidekicksException) { _status ->
+    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_key_by_method_id(
+        it, FfiConverterString.lower(`keyId`),_status)
+}
+    }
+    )
+    }
+    
+
+    override fun `getProfileVersion`(): kotlin.String? {
+            return FfiConverterOptionalString.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_profile_version(
+        it, _status)
 }
     }
     )
@@ -2741,6 +2852,12 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
     
     /**
      * Serializes this `DidDoc` object as a `String` of JSON.
+     *
+     * The `SerializationFailed` error code denotes a serialization failure:
+     *
+     * - if `DidDoc`'s implementation of [`Serialize`] decides to fail, or
+     *
+     * - if `DidDoc` contains a map with non-string keys.
      */
     @Throws(DidSidekicksException::class)override fun `toJson`(): kotlin.String {
             return FfiConverterString.lift(
@@ -4560,7 +4677,7 @@ public interface Ed25519SigningKeyInterface {
      *
      * The `KeySignatureError` error code denotes a malformed hex-encoded message.
      */
-    fun `signHex`(`message`: kotlin.String): Ed25519Signature
+    fun `signHex`(`messageHex`: kotlin.String): Ed25519Signature
     
     /**
      * The multibase-encoding method, as specified by `Multikey` (https://www.w3.org/TR/controller-document/#Multikey):
@@ -4705,12 +4822,12 @@ open class Ed25519SigningKey: Disposable, AutoCloseable, Ed25519SigningKeyInterf
      *
      * The `KeySignatureError` error code denotes a malformed hex-encoded message.
      */
-    @Throws(DidSidekicksException::class)override fun `signHex`(`message`: kotlin.String): Ed25519Signature {
+    @Throws(DidSidekicksException::class)override fun `signHex`(`messageHex`: kotlin.String): Ed25519Signature {
             return FfiConverterTypeEd25519Signature.lift(
     callWithPointer {
     uniffiRustCallWithError(DidSidekicksException) { _status ->
     UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_ed25519signingkey_sign_hex(
-        it, FfiConverterString.lower(`message`),_status)
+        it, FfiConverterString.lower(`messageHex`),_status)
 }
     }
     )
