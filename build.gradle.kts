@@ -14,7 +14,7 @@ plugins {
 // CAUTION Until 2.0.1 (GitHub packages), the "group" was set to "ch.admin.eid".
 //         For the sake of Maven Central publishing, it must now match the Maven Central namespace
 group = "ch.admin.swiyu"
-version = "2.6.0"
+version = "2.7.0"
 
 repositories {
     // Use Maven Central for resolving dependencies.
