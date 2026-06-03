@@ -59,7 +59,7 @@ open class RustBuffer : Structure() {
     companion object {
         internal fun alloc(size: ULong = 0UL) = uniffiRustCall() { status ->
             // Note: need to convert the size to a `Long` value to make this work with JVM.
-            UniffiLib.INSTANCE.ffi_did_sidekicks_rustbuffer_alloc(size.toLong(), status)
+            UniffiLib.ffi_did_sidekicks_rustbuffer_alloc(size.toLong(), status)
         }.also {
             if(it.data == null) {
                throw RuntimeException("RustBuffer.alloc() returned null data pointer (size=${size})")
@@ -75,49 +75,15 @@ open class RustBuffer : Structure() {
         }
 
         internal fun free(buf: RustBuffer.ByValue) = uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.ffi_did_sidekicks_rustbuffer_free(buf, status)
+            UniffiLib.ffi_did_sidekicks_rustbuffer_free(buf, status)
         }
     }
 
     @Suppress("TooGenericExceptionThrown")
     fun asByteBuffer() =
-        this.data?.getByteBuffer(0, this.len.toLong())?.also {
+        this.data?.getByteBuffer(0, this.len)?.also {
             it.order(ByteOrder.BIG_ENDIAN)
         }
-}
-
-/**
- * The equivalent of the `*mut RustBuffer` type.
- * Required for callbacks taking in an out pointer.
- *
- * Size is the sum of all values in the struct.
- *
- * @suppress
- */
-class RustBufferByReference : ByReference(16) {
-    /**
-     * Set the pointed-to `RustBuffer` to the given value.
-     */
-    fun setValue(value: RustBuffer.ByValue) {
-        // NOTE: The offsets are as they are in the C-like struct.
-        val pointer = getPointer()
-        pointer.setLong(0, value.capacity)
-        pointer.setLong(8, value.len)
-        pointer.setPointer(16, value.data)
-    }
-
-    /**
-     * Get a `RustBuffer.ByValue` from this reference.
-     */
-    fun getValue(): RustBuffer.ByValue {
-        val pointer = getPointer()
-        val value = RustBuffer.ByValue()
-        value.writeField("capacity", pointer.getLong(0))
-        value.writeField("len", pointer.getLong(8))
-        value.writeField("data", pointer.getLong(16))
-
-        return value
-    }
 }
 
 // This is a helper for safely passing byte references into the rust code.
@@ -316,8 +282,9 @@ internal inline fun<T> uniffiTraitInterfaceCall(
     try {
         writeReturn(makeCall())
     } catch(e: kotlin.Exception) {
+        val err = try { e.stackTraceToString() } catch(_: Throwable) { "" }
         callStatus.code = UNIFFI_CALL_UNEXPECTED_ERROR
-        callStatus.error_buf = FfiConverterString.lower(e.toString())
+        callStatus.error_buf = FfiConverterString.lower(err)
     }
 }
 
@@ -334,26 +301,39 @@ internal inline fun<T, reified E: Throwable> uniffiTraitInterfaceCallWithError(
             callStatus.code = UNIFFI_CALL_ERROR
             callStatus.error_buf = lowerError(e)
         } else {
+            val err = try { e.stackTraceToString() } catch(_: Throwable) { "" }
             callStatus.code = UNIFFI_CALL_UNEXPECTED_ERROR
-            callStatus.error_buf = FfiConverterString.lower(e.toString())
+            callStatus.error_buf = FfiConverterString.lower(err)
         }
     }
 }
+// Initial value and increment amount for handles. 
+// These ensure that Kotlin-generated handles always have the lowest bit set
+private const val UNIFFI_HANDLEMAP_INITIAL = 1.toLong()
+private const val UNIFFI_HANDLEMAP_DELTA = 2.toLong()
+
 // Map handles to objects
 //
 // This is used pass an opaque 64-bit handle representing a foreign object to the Rust code.
 internal class UniffiHandleMap<T: Any> {
     private val map = ConcurrentHashMap<Long, T>()
-    private val counter = java.util.concurrent.atomic.AtomicLong(0)
+    // Start 
+    private val counter = java.util.concurrent.atomic.AtomicLong(UNIFFI_HANDLEMAP_INITIAL)
 
     val size: Int
         get() = map.size
 
     // Insert a new object into the handle map and get a handle for it
     fun insert(obj: T): Long {
-        val handle = counter.getAndAdd(1)
+        val handle = counter.getAndAdd(UNIFFI_HANDLEMAP_DELTA)
         map.put(handle, obj)
         return handle
+    }
+
+    // Clone a handle, creating a new one
+    fun clone(handle: Long): Long {
+        val obj = map.get(handle) ?: throw InternalException("UniffiHandleMap.clone: Invalid handle")
+        return insert(obj)
     }
 
     // Get an object from the handle map
@@ -378,1027 +358,759 @@ private fun findLibraryName(componentName: String): String {
     return "didresolver"
 }
 
-private inline fun <reified Lib : Library> loadIndirect(
-    componentName: String
-): Lib {
-    return Native.load<Lib>(findLibraryName(componentName), Lib::class.java)
-}
-
 // Define FFI callback types
 internal interface UniffiRustFutureContinuationCallback : com.sun.jna.Callback {
     fun callback(`data`: Long,`pollResult`: Byte,)
 }
-internal interface UniffiForeignFutureFree : com.sun.jna.Callback {
+internal interface UniffiForeignFutureDroppedCallback : com.sun.jna.Callback {
     fun callback(`handle`: Long,)
 }
 internal interface UniffiCallbackInterfaceFree : com.sun.jna.Callback {
     fun callback(`handle`: Long,)
 }
+internal interface UniffiCallbackInterfaceClone : com.sun.jna.Callback {
+    fun callback(`handle`: Long,)
+    : Long
+}
 @Structure.FieldOrder("handle", "free")
-internal open class UniffiForeignFuture(
+internal open class UniffiForeignFutureDroppedCallbackStruct(
     @JvmField internal var `handle`: Long = 0.toLong(),
-    @JvmField internal var `free`: UniffiForeignFutureFree? = null,
+    @JvmField internal var `free`: UniffiForeignFutureDroppedCallback? = null,
 ) : Structure() {
     class UniffiByValue(
         `handle`: Long = 0.toLong(),
-        `free`: UniffiForeignFutureFree? = null,
-    ): UniffiForeignFuture(`handle`,`free`,), Structure.ByValue
+        `free`: UniffiForeignFutureDroppedCallback? = null,
+    ): UniffiForeignFutureDroppedCallbackStruct(`handle`,`free`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFuture) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureDroppedCallbackStruct) {
         `handle` = other.`handle`
         `free` = other.`free`
     }
 
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureStructU8(
+internal open class UniffiForeignFutureResultU8(
     @JvmField internal var `returnValue`: Byte = 0.toByte(),
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Byte = 0.toByte(),
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureStructU8(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureResultU8(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructU8) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureResultU8) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteU8 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructU8.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultU8.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureStructI8(
+internal open class UniffiForeignFutureResultI8(
     @JvmField internal var `returnValue`: Byte = 0.toByte(),
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Byte = 0.toByte(),
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureStructI8(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureResultI8(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructI8) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureResultI8) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteI8 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructI8.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultI8.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureStructU16(
+internal open class UniffiForeignFutureResultU16(
     @JvmField internal var `returnValue`: Short = 0.toShort(),
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Short = 0.toShort(),
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureStructU16(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureResultU16(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructU16) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureResultU16) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteU16 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructU16.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultU16.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureStructI16(
+internal open class UniffiForeignFutureResultI16(
     @JvmField internal var `returnValue`: Short = 0.toShort(),
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Short = 0.toShort(),
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureStructI16(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureResultI16(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructI16) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureResultI16) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteI16 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructI16.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultI16.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureStructU32(
+internal open class UniffiForeignFutureResultU32(
     @JvmField internal var `returnValue`: Int = 0,
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Int = 0,
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureStructU32(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureResultU32(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructU32) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureResultU32) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteU32 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructU32.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultU32.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureStructI32(
+internal open class UniffiForeignFutureResultI32(
     @JvmField internal var `returnValue`: Int = 0,
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Int = 0,
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureStructI32(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureResultI32(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructI32) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureResultI32) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteI32 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructI32.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultI32.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureStructU64(
+internal open class UniffiForeignFutureResultU64(
     @JvmField internal var `returnValue`: Long = 0.toLong(),
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Long = 0.toLong(),
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureStructU64(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureResultU64(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructU64) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureResultU64) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteU64 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructU64.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultU64.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureStructI64(
+internal open class UniffiForeignFutureResultI64(
     @JvmField internal var `returnValue`: Long = 0.toLong(),
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Long = 0.toLong(),
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureStructI64(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureResultI64(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructI64) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureResultI64) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteI64 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructI64.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultI64.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureStructF32(
+internal open class UniffiForeignFutureResultF32(
     @JvmField internal var `returnValue`: Float = 0.0f,
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Float = 0.0f,
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureStructF32(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureResultF32(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructF32) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureResultF32) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteF32 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructF32.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultF32.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureStructF64(
+internal open class UniffiForeignFutureResultF64(
     @JvmField internal var `returnValue`: Double = 0.0,
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Double = 0.0,
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureStructF64(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureResultF64(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructF64) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureResultF64) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteF64 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructF64.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultF64.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureStructPointer(
-    @JvmField internal var `returnValue`: Pointer = Pointer.NULL,
-    @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-) : Structure() {
-    class UniffiByValue(
-        `returnValue`: Pointer = Pointer.NULL,
-        `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureStructPointer(`returnValue`,`callStatus`,), Structure.ByValue
-
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructPointer) {
-        `returnValue` = other.`returnValue`
-        `callStatus` = other.`callStatus`
-    }
-
-}
-internal interface UniffiForeignFutureCompletePointer : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructPointer.UniffiByValue,)
-}
-@Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureStructRustBuffer(
+internal open class UniffiForeignFutureResultRustBuffer(
     @JvmField internal var `returnValue`: RustBuffer.ByValue = RustBuffer.ByValue(),
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: RustBuffer.ByValue = RustBuffer.ByValue(),
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureStructRustBuffer(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureResultRustBuffer(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructRustBuffer) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureResultRustBuffer) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteRustBuffer : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructRustBuffer.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultRustBuffer.UniffiByValue,)
 }
 @Structure.FieldOrder("callStatus")
-internal open class UniffiForeignFutureStructVoid(
+internal open class UniffiForeignFutureResultVoid(
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureStructVoid(`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureResultVoid(`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureStructVoid) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureResultVoid) {
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructVoid.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultVoid.UniffiByValue,)
 }
 internal interface UniffiCallbackInterfaceDidLogEntryJsonSchemaMethod0 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
 }
-@Structure.FieldOrder("getJsonSchema", "uniffiFree")
+@Structure.FieldOrder("uniffiFree", "uniffiClone", "getJsonSchema")
 internal open class UniffiVTableCallbackInterfaceDidLogEntryJsonSchema(
-    @JvmField internal var `getJsonSchema`: UniffiCallbackInterfaceDidLogEntryJsonSchemaMethod0? = null,
     @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+    @JvmField internal var `uniffiClone`: UniffiCallbackInterfaceClone? = null,
+    @JvmField internal var `getJsonSchema`: UniffiCallbackInterfaceDidLogEntryJsonSchemaMethod0? = null,
 ) : Structure() {
     class UniffiByValue(
-        `getJsonSchema`: UniffiCallbackInterfaceDidLogEntryJsonSchemaMethod0? = null,
         `uniffiFree`: UniffiCallbackInterfaceFree? = null,
-    ): UniffiVTableCallbackInterfaceDidLogEntryJsonSchema(`getJsonSchema`,`uniffiFree`,), Structure.ByValue
+        `uniffiClone`: UniffiCallbackInterfaceClone? = null,
+        `getJsonSchema`: UniffiCallbackInterfaceDidLogEntryJsonSchemaMethod0? = null,
+    ): UniffiVTableCallbackInterfaceDidLogEntryJsonSchema(`uniffiFree`,`uniffiClone`,`getJsonSchema`,), Structure.ByValue
 
    internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceDidLogEntryJsonSchema) {
-        `getJsonSchema` = other.`getJsonSchema`
         `uniffiFree` = other.`uniffiFree`
+        `uniffiClone` = other.`uniffiClone`
+        `getJsonSchema` = other.`getJsonSchema`
     }
-
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// For large crates we prevent `MethodTooLargeException` (see #2340)
-// N.B. the name of the extension is very misleading, since it is 
-// rather `InterfaceTooLargeException`, caused by too many methods 
-// in the interface for large crates.
-//
-// By splitting the otherwise huge interface into two parts
-// * UniffiLib 
-// * IntegrityCheckingUniffiLib (this)
-// we allow for ~2x as many methods in the UniffiLib interface.
-// 
-// The `ffi_uniffi_contract_version` method and all checksum methods are put 
-// into `IntegrityCheckingUniffiLib` and these methods are called only once,
-// when the library is loaded.
-internal interface IntegrityCheckingUniffiLib : Library {
-    // Integrity check functions only
-    fun uniffi_did_sidekicks_checksum_func_get_key_from_did_doc(
-): Short
-fun uniffi_did_sidekicks_checksum_method_diddoc_get_assertion_method(
-): Short
-fun uniffi_did_sidekicks_checksum_method_diddoc_get_authentication(
-): Short
-fun uniffi_did_sidekicks_checksum_method_diddoc_get_capability_delegation(
-): Short
-fun uniffi_did_sidekicks_checksum_method_diddoc_get_capability_invocation(
-): Short
-fun uniffi_did_sidekicks_checksum_method_diddoc_get_context(
-): Short
-fun uniffi_did_sidekicks_checksum_method_diddoc_get_controller(
-): Short
-fun uniffi_did_sidekicks_checksum_method_diddoc_get_deactivated(
-): Short
-fun uniffi_did_sidekicks_checksum_method_diddoc_get_id(
-): Short
-fun uniffi_did_sidekicks_checksum_method_diddoc_get_key(
-): Short
-fun uniffi_did_sidekicks_checksum_method_diddoc_get_key_by_fragment(
-): Short
-fun uniffi_did_sidekicks_checksum_method_diddoc_get_key_by_method_id(
-): Short
-fun uniffi_did_sidekicks_checksum_method_diddoc_get_profile_version(
-): Short
-fun uniffi_did_sidekicks_checksum_method_diddoc_get_verification_method(
-): Short
-fun uniffi_did_sidekicks_checksum_method_diddoc_to_json(
-): Short
-fun uniffi_did_sidekicks_checksum_method_diddocextended_get_did_doc(
-): Short
-fun uniffi_did_sidekicks_checksum_method_diddocextended_get_did_method_parameters(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didlogentryjsonschema_get_json_schema(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didlogentryvalidator_validate(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_get_bool_value(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_get_f64_value(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_get_i64_value(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_get_json_text(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_get_name(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_get_string_array_value(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_get_string_value(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_get_u64_value(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_array(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_bool(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_empty_array(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_f64(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_i64(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_null(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_object(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_string(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_string_array(
-): Short
-fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_u64(
-): Short
-fun uniffi_did_sidekicks_checksum_method_ed25519signature_to_hex(
-): Short
-fun uniffi_did_sidekicks_checksum_method_ed25519signature_to_multibase(
-): Short
-fun uniffi_did_sidekicks_checksum_method_ed25519signingkey_get_verifying_key(
-): Short
-fun uniffi_did_sidekicks_checksum_method_ed25519signingkey_sign(
-): Short
-fun uniffi_did_sidekicks_checksum_method_ed25519signingkey_sign_hex(
-): Short
-fun uniffi_did_sidekicks_checksum_method_ed25519signingkey_to_multibase(
-): Short
-fun uniffi_did_sidekicks_checksum_method_ed25519signingkey_write_pkcs8_pem_file(
-): Short
-fun uniffi_did_sidekicks_checksum_method_ed25519verifyingkey_to_multibase(
-): Short
-fun uniffi_did_sidekicks_checksum_method_ed25519verifyingkey_verify_strict(
-): Short
-fun uniffi_did_sidekicks_checksum_method_ed25519verifyingkey_verify_strict_from_hex(
-): Short
-fun uniffi_did_sidekicks_checksum_method_ed25519verifyingkey_write_public_key_pem_file(
-): Short
-fun uniffi_did_sidekicks_checksum_method_eddsajcs2022cryptosuite_add_proof(
-): Short
-fun uniffi_did_sidekicks_checksum_method_eddsajcs2022cryptosuite_verify_proof(
-): Short
-fun uniffi_did_sidekicks_checksum_method_jcssha256hasher_base58btc_encode_multihash(
-): Short
-fun uniffi_did_sidekicks_checksum_method_jcssha256hasher_encode_hex(
-): Short
-fun uniffi_did_sidekicks_checksum_constructor_cryptosuiteproofoptions_build(
-): Short
-fun uniffi_did_sidekicks_checksum_constructor_cryptosuiteproofoptions_new_eddsa_jcs_2022(
-): Short
-fun uniffi_did_sidekicks_checksum_constructor_dataintegrityproof_from_json_string(
-): Short
-fun uniffi_did_sidekicks_checksum_constructor_diddoc_from_json(
-): Short
-fun uniffi_did_sidekicks_checksum_constructor_didlogentryvalidator_from(
-): Short
-fun uniffi_did_sidekicks_checksum_constructor_ed25519signature_from_hex(
-): Short
-fun uniffi_did_sidekicks_checksum_constructor_ed25519signature_from_multibase(
-): Short
-fun uniffi_did_sidekicks_checksum_constructor_ed25519signingkey_from_multibase(
-): Short
-fun uniffi_did_sidekicks_checksum_constructor_ed25519signingkey_from_pkcs8_pem(
-): Short
-fun uniffi_did_sidekicks_checksum_constructor_ed25519signingkey_generate(
-): Short
-fun uniffi_did_sidekicks_checksum_constructor_ed25519signingkey_read_pkcs8_pem_file(
-): Short
-fun uniffi_did_sidekicks_checksum_constructor_ed25519verifyingkey_from_multibase(
-): Short
-fun uniffi_did_sidekicks_checksum_constructor_ed25519verifyingkey_from_public_key_pem(
-): Short
-fun uniffi_did_sidekicks_checksum_constructor_ed25519verifyingkey_read_public_key_pem_file(
-): Short
-fun uniffi_did_sidekicks_checksum_constructor_eddsajcs2022cryptosuite_from_signing_key(
-): Short
-fun uniffi_did_sidekicks_checksum_constructor_eddsajcs2022cryptosuite_from_verifying_key(
-): Short
-fun uniffi_did_sidekicks_checksum_constructor_jcssha256hasher_build(
-): Short
-fun ffi_did_sidekicks_uniffi_contract_version(
-): Int
 
 }
 
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
-internal interface UniffiLib : Library {
-    companion object {
-        internal val INSTANCE: UniffiLib by lazy {
-            val componentName = "did_sidekicks"
-            // For large crates we prevent `MethodTooLargeException` (see #2340)
-            // N.B. the name of the extension is very misleading, since it is 
-            // rather `InterfaceTooLargeException`, caused by too many methods 
-            // in the interface for large crates.
-            //
-            // By splitting the otherwise huge interface into two parts
-            // * UniffiLib (this)
-            // * IntegrityCheckingUniffiLib
-            // And all checksum methods are put into `IntegrityCheckingUniffiLib`
-            // we allow for ~2x as many methods in the UniffiLib interface.
-            // 
-            // Thus we first load the library with `loadIndirect` as `IntegrityCheckingUniffiLib`
-            // so that we can (optionally!) call `uniffiCheckApiChecksums`...
-            loadIndirect<IntegrityCheckingUniffiLib>(componentName)
-                .also { lib: IntegrityCheckingUniffiLib ->
-                    uniffiCheckContractApiVersion(lib)
-                    uniffiCheckApiChecksums(lib)
-                }
-            // ... and then we load the library as `UniffiLib`
-            // N.B. we cannot use `loadIndirect` once and then try to cast it to `UniffiLib`
-            // => results in `java.lang.ClassCastException: com.sun.proxy.$Proxy cannot be cast to ...`
-            // error. So we must call `loadIndirect` twice. For crates large enough
-            // to trigger this issue, the performance impact is negligible, running on
-            // a macOS M1 machine the `loadIndirect` call takes ~50ms.
-            val lib = loadIndirect<UniffiLib>(componentName)
-            // No need to check the contract version and checksums, since 
-            // we already did that with `IntegrityCheckingUniffiLib` above.
-            // Loading of library with integrity check done.
-            lib
-        }
-        
-        // The Cleaner for the whole library
-        internal val CLEANER: UniffiCleaner by lazy {
-            UniffiCleaner.create()
-        }
+
+// For large crates we prevent `MethodTooLargeException` (see #2340)
+// N.B. the name of the extension is very misleading, since it is
+// rather `InterfaceTooLargeException`, caused by too many methods
+// in the interface for large crates.
+//
+// By splitting the otherwise huge interface into two parts
+// * UniffiLib (this)
+// * IntegrityCheckingUniffiLib
+// And all checksum methods are put into `IntegrityCheckingUniffiLib`
+// we allow for ~2x as many methods in the UniffiLib interface.
+//
+// Note: above all written when we used JNA's `loadIndirect` etc.
+// We now use JNA's "direct mapping" - unclear if same considerations apply exactly.
+internal object IntegrityCheckingUniffiLib {
+    init {
+        Native.register(IntegrityCheckingUniffiLib::class.java, findLibraryName(componentName = "did_sidekicks"))
+        uniffiCheckContractApiVersion(this)
+        uniffiCheckApiChecksums(this)
     }
+    external fun uniffi_did_sidekicks_checksum_func_get_key_from_did_doc(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_diddoc_get_assertion_method(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_diddoc_get_authentication(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_diddoc_get_capability_delegation(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_diddoc_get_capability_invocation(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_diddoc_get_context(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_diddoc_get_controller(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_diddoc_get_deactivated(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_diddoc_get_id(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_diddoc_get_key(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_diddoc_get_key_by_fragment(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_diddoc_get_key_by_method_id(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_diddoc_get_profile_version(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_diddoc_get_verification_method(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_diddoc_to_json(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_diddocextended_get_did_doc(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_diddocextended_get_did_method_parameters(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didlogentryjsonschema_get_json_schema(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didlogentryvalidator_validate(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_get_bool_value(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_get_f64_value(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_get_i64_value(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_get_json_text(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_get_name(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_get_string_array_value(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_get_string_value(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_get_u64_value(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_array(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_bool(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_empty_array(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_f64(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_i64(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_null(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_object(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_string(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_string_array(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_didmethodparameter_is_u64(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_ed25519signature_to_hex(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_ed25519signature_to_multibase(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_ed25519signingkey_get_verifying_key(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_ed25519signingkey_sign(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_ed25519signingkey_sign_hex(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_ed25519signingkey_to_multibase(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_ed25519signingkey_write_pkcs8_pem_file(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_ed25519verifyingkey_to_multibase(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_ed25519verifyingkey_verify_strict(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_ed25519verifyingkey_verify_strict_from_hex(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_ed25519verifyingkey_write_public_key_pem_file(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_eddsajcs2022cryptosuite_add_proof(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_eddsajcs2022cryptosuite_verify_proof(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_jcssha256hasher_base58btc_encode_multihash(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_method_jcssha256hasher_encode_hex(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_constructor_cryptosuiteproofoptions_build(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_constructor_cryptosuiteproofoptions_new_eddsa_jcs_2022(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_constructor_dataintegrityproof_from_json_string(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_constructor_diddoc_from_json(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_constructor_didlogentryvalidator_from(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_constructor_ed25519signature_from_hex(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_constructor_ed25519signature_from_multibase(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_constructor_ed25519signingkey_from_multibase(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_constructor_ed25519signingkey_from_pkcs8_pem(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_constructor_ed25519signingkey_generate(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_constructor_ed25519signingkey_read_pkcs8_pem_file(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_constructor_ed25519verifyingkey_from_multibase(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_constructor_ed25519verifyingkey_from_public_key_pem(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_constructor_ed25519verifyingkey_read_public_key_pem_file(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_constructor_eddsajcs2022cryptosuite_from_signing_key(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_constructor_eddsajcs2022cryptosuite_from_verifying_key(
+    ): Short
+    external fun uniffi_did_sidekicks_checksum_constructor_jcssha256hasher_build(
+    ): Short
+    external fun ffi_did_sidekicks_uniffi_contract_version(
+    ): Int
 
-    // FFI functions
-    fun uniffi_did_sidekicks_fn_clone_cryptosuiteproofoptions(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_free_cryptosuiteproofoptions(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_constructor_cryptosuiteproofoptions_build(uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_constructor_cryptosuiteproofoptions_new_eddsa_jcs_2022(`createdDtRfc3339`: RustBuffer.ByValue,`verificationMethod`: RustBuffer.ByValue,`proofPurpose`: RustBuffer.ByValue,`context`: RustBuffer.ByValue,`challenge`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_clone_dataintegrityproof(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_free_dataintegrityproof(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_constructor_dataintegrityproof_from_json_string(`json`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_clone_diddoc(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_free_diddoc(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_constructor_diddoc_from_json(`jsonContent`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_method_diddoc_get_assertion_method(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_diddoc_get_authentication(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_diddoc_get_capability_delegation(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_diddoc_get_capability_invocation(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_diddoc_get_context(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_diddoc_get_controller(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_diddoc_get_deactivated(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Byte
-fun uniffi_did_sidekicks_fn_method_diddoc_get_id(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_diddoc_get_key(`ptr`: Pointer,`keyId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_diddoc_get_key_by_fragment(`ptr`: Pointer,`keyId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_diddoc_get_key_by_method_id(`ptr`: Pointer,`keyId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_diddoc_get_profile_version(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_diddoc_get_verification_method(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_diddoc_to_json(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_clone_diddocextended(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_free_diddocextended(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_method_diddocextended_get_did_doc(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_method_diddocextended_get_did_method_parameters(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_clone_didlogentryjsonschema(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_free_didlogentryjsonschema(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_method_didlogentryjsonschema_get_json_schema(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_clone_didlogentryvalidator(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_free_didlogentryvalidator(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_constructor_didlogentryvalidator_from(`schema`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_method_didlogentryvalidator_validate(`ptr`: Pointer,`instance`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_clone_didmethodparameter(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_free_didmethodparameter(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_get_bool_value(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_get_f64_value(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_get_i64_value(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_get_json_text(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_get_name(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_get_string_array_value(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_get_string_value(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_get_u64_value(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_array(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Byte
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_bool(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Byte
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_empty_array(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Byte
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_f64(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Byte
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_i64(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Byte
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_null(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Byte
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_object(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Byte
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_string(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Byte
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_string_array(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Byte
-fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_u64(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Byte
-fun uniffi_did_sidekicks_fn_clone_ed25519signature(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_free_ed25519signature(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_constructor_ed25519signature_from_hex(`hexEncoded`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_constructor_ed25519signature_from_multibase(`multibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_method_ed25519signature_to_hex(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_ed25519signature_to_multibase(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_clone_ed25519signingkey(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_free_ed25519signingkey(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_constructor_ed25519signingkey_from_multibase(`multibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_constructor_ed25519signingkey_from_pkcs8_pem(`pkcs8Pem`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_constructor_ed25519signingkey_generate(uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_constructor_ed25519signingkey_read_pkcs8_pem_file(`pkcs8PemFile`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_method_ed25519signingkey_get_verifying_key(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_method_ed25519signingkey_sign(`ptr`: Pointer,`message`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_method_ed25519signingkey_sign_hex(`ptr`: Pointer,`messageHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_method_ed25519signingkey_to_multibase(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_ed25519signingkey_write_pkcs8_pem_file(`ptr`: Pointer,`pkcs8PemFile`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_clone_ed25519verifyingkey(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_free_ed25519verifyingkey(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_constructor_ed25519verifyingkey_from_multibase(`multibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_constructor_ed25519verifyingkey_from_public_key_pem(`publicKeyPem`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_constructor_ed25519verifyingkey_read_public_key_pem_file(`publicKeyPemFile`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_method_ed25519verifyingkey_to_multibase(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_ed25519verifyingkey_verify_strict(`ptr`: Pointer,`message`: RustBuffer.ByValue,`signature`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_method_ed25519verifyingkey_verify_strict_from_hex(`ptr`: Pointer,`messageHex`: RustBuffer.ByValue,`signature`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_method_ed25519verifyingkey_write_public_key_pem_file(`ptr`: Pointer,`publicKeyPemFile`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_clone_eddsajcs2022cryptosuite(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_free_eddsajcs2022cryptosuite(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_constructor_eddsajcs2022cryptosuite_from_signing_key(`signingKey`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_constructor_eddsajcs2022cryptosuite_from_verifying_key(`verifyingKey`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_method_eddsajcs2022cryptosuite_add_proof(`ptr`: Pointer,`unsecuredDocument`: RustBuffer.ByValue,`options`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_eddsajcs2022cryptosuite_verify_proof(`ptr`: Pointer,`proof`: Pointer,`docHash`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_clone_jcssha256hasher(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_free_jcssha256hasher(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun uniffi_did_sidekicks_fn_constructor_jcssha256hasher_build(uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun uniffi_did_sidekicks_fn_method_jcssha256hasher_base58btc_encode_multihash(`ptr`: Pointer,`json`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_method_jcssha256hasher_encode_hex(`ptr`: Pointer,`json`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun uniffi_did_sidekicks_fn_func_get_key_from_did_doc(`didDoc`: RustBuffer.ByValue,`keyId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun ffi_did_sidekicks_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun ffi_did_sidekicks_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun ffi_did_sidekicks_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-): Unit
-fun ffi_did_sidekicks_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Long,uniffi_out_err: UniffiRustCallStatus, 
-): RustBuffer.ByValue
-fun ffi_did_sidekicks_rust_future_poll_u8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_cancel_u8(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_free_u8(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_complete_u8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-): Byte
-fun ffi_did_sidekicks_rust_future_poll_i8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_cancel_i8(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_free_i8(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_complete_i8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-): Byte
-fun ffi_did_sidekicks_rust_future_poll_u16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_cancel_u16(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_free_u16(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_complete_u16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-): Short
-fun ffi_did_sidekicks_rust_future_poll_i16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_cancel_i16(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_free_i16(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_complete_i16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-): Short
-fun ffi_did_sidekicks_rust_future_poll_u32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_cancel_u32(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_free_u32(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_complete_u32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-): Int
-fun ffi_did_sidekicks_rust_future_poll_i32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_cancel_i32(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_free_i32(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_complete_i32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-): Int
-fun ffi_did_sidekicks_rust_future_poll_u64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_cancel_u64(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_free_u64(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_complete_u64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+        
+}
+
+internal object UniffiLib {
+    
+    // The Cleaner for the whole library
+    internal val CLEANER: UniffiCleaner by lazy {
+        UniffiCleaner.create()
+    }
+    
+
+    init {
+        Native.register(UniffiLib::class.java, findLibraryName(componentName = "did_sidekicks"))
+        
+    }
+    external fun uniffi_did_sidekicks_fn_clone_cryptosuiteproofoptions(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Long
-fun ffi_did_sidekicks_rust_future_poll_i64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+external fun uniffi_did_sidekicks_fn_free_cryptosuiteproofoptions(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
-fun ffi_did_sidekicks_rust_future_cancel_i64(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_free_i64(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_complete_i64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+external fun uniffi_did_sidekicks_fn_constructor_cryptosuiteproofoptions_build(uniffi_out_err: UniffiRustCallStatus, 
 ): Long
-fun ffi_did_sidekicks_rust_future_poll_f32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+external fun uniffi_did_sidekicks_fn_constructor_cryptosuiteproofoptions_new_eddsa_jcs_2022(`createdDtRfc3339`: RustBuffer.ByValue,`verificationMethod`: RustBuffer.ByValue,`proofPurpose`: RustBuffer.ByValue,`context`: RustBuffer.ByValue,`challenge`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_clone_dataintegrityproof(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_free_dataintegrityproof(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
-fun ffi_did_sidekicks_rust_future_cancel_f32(`handle`: Long,
+external fun uniffi_did_sidekicks_fn_constructor_dataintegrityproof_from_json_string(`json`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_clone_diddoc(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_free_diddoc(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
-fun ffi_did_sidekicks_rust_future_free_f32(`handle`: Long,
+external fun uniffi_did_sidekicks_fn_constructor_diddoc_from_json(`jsonContent`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_method_diddoc_get_assertion_method(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_diddoc_get_authentication(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_diddoc_get_capability_delegation(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_diddoc_get_capability_invocation(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_diddoc_get_context(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_diddoc_get_controller(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_diddoc_get_deactivated(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+external fun uniffi_did_sidekicks_fn_method_diddoc_get_id(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_diddoc_get_key(`ptr`: Long,`keyId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_diddoc_get_key_by_fragment(`ptr`: Long,`keyId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_diddoc_get_key_by_method_id(`ptr`: Long,`keyId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_diddoc_get_profile_version(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_diddoc_get_verification_method(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_diddoc_to_json(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_clone_diddocextended(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_free_diddocextended(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
-fun ffi_did_sidekicks_rust_future_complete_f32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+external fun uniffi_did_sidekicks_fn_method_diddocextended_get_did_doc(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_method_diddocextended_get_did_method_parameters(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_clone_didlogentryjsonschema(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_free_didlogentryjsonschema(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+external fun uniffi_did_sidekicks_fn_method_didlogentryjsonschema_get_json_schema(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_clone_didlogentryvalidator(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_free_didlogentryvalidator(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+external fun uniffi_did_sidekicks_fn_constructor_didlogentryvalidator_from(`schema`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_method_didlogentryvalidator_validate(`ptr`: Long,`instance`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+external fun uniffi_did_sidekicks_fn_clone_didmethodparameter(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_free_didmethodparameter(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_get_bool_value(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_get_f64_value(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_get_i64_value(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_get_json_text(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_get_name(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_get_string_array_value(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_get_string_value(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_get_u64_value(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_array(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_bool(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_empty_array(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_f64(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_i64(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_null(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_object(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_string(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_string_array(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+external fun uniffi_did_sidekicks_fn_method_didmethodparameter_is_u64(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+external fun uniffi_did_sidekicks_fn_clone_ed25519signature(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_free_ed25519signature(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+external fun uniffi_did_sidekicks_fn_constructor_ed25519signature_from_hex(`hexEncoded`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_constructor_ed25519signature_from_multibase(`multibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_method_ed25519signature_to_hex(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_ed25519signature_to_multibase(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_clone_ed25519signingkey(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_free_ed25519signingkey(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+external fun uniffi_did_sidekicks_fn_constructor_ed25519signingkey_from_multibase(`multibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_constructor_ed25519signingkey_from_pkcs8_pem(`pkcs8Pem`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_constructor_ed25519signingkey_generate(uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_constructor_ed25519signingkey_read_pkcs8_pem_file(`pkcs8PemFile`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_method_ed25519signingkey_get_verifying_key(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_method_ed25519signingkey_sign(`ptr`: Long,`message`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_method_ed25519signingkey_sign_hex(`ptr`: Long,`messageHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_method_ed25519signingkey_to_multibase(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_ed25519signingkey_write_pkcs8_pem_file(`ptr`: Long,`pkcs8PemFile`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+external fun uniffi_did_sidekicks_fn_clone_ed25519verifyingkey(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_free_ed25519verifyingkey(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+external fun uniffi_did_sidekicks_fn_constructor_ed25519verifyingkey_from_multibase(`multibase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_constructor_ed25519verifyingkey_from_public_key_pem(`publicKeyPem`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_constructor_ed25519verifyingkey_read_public_key_pem_file(`publicKeyPemFile`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_method_ed25519verifyingkey_to_multibase(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_ed25519verifyingkey_verify_strict(`ptr`: Long,`message`: RustBuffer.ByValue,`signature`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+external fun uniffi_did_sidekicks_fn_method_ed25519verifyingkey_verify_strict_from_hex(`ptr`: Long,`messageHex`: RustBuffer.ByValue,`signature`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+external fun uniffi_did_sidekicks_fn_method_ed25519verifyingkey_write_public_key_pem_file(`ptr`: Long,`publicKeyPemFile`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+external fun uniffi_did_sidekicks_fn_clone_eddsajcs2022cryptosuite(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_free_eddsajcs2022cryptosuite(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+external fun uniffi_did_sidekicks_fn_constructor_eddsajcs2022cryptosuite_from_signing_key(`signingKey`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_constructor_eddsajcs2022cryptosuite_from_verifying_key(`verifyingKey`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_method_eddsajcs2022cryptosuite_add_proof(`ptr`: Long,`unsecuredDocument`: RustBuffer.ByValue,`options`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_eddsajcs2022cryptosuite_verify_proof(`ptr`: Long,`proof`: Long,`docHash`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+external fun uniffi_did_sidekicks_fn_clone_jcssha256hasher(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_free_jcssha256hasher(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+external fun uniffi_did_sidekicks_fn_constructor_jcssha256hasher_build(uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun uniffi_did_sidekicks_fn_method_jcssha256hasher_base58btc_encode_multihash(`ptr`: Long,`json`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_method_jcssha256hasher_encode_hex(`ptr`: Long,`json`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_did_sidekicks_fn_func_get_key_from_did_doc(`didDoc`: RustBuffer.ByValue,`keyId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun ffi_did_sidekicks_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun ffi_did_sidekicks_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun ffi_did_sidekicks_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+external fun ffi_did_sidekicks_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun ffi_did_sidekicks_rust_future_poll_u8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_cancel_u8(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_free_u8(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_complete_u8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+external fun ffi_did_sidekicks_rust_future_poll_i8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_cancel_i8(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_free_i8(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_complete_i8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+external fun ffi_did_sidekicks_rust_future_poll_u16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_cancel_u16(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_free_u16(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_complete_u16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Short
+external fun ffi_did_sidekicks_rust_future_poll_i16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_cancel_i16(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_free_i16(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_complete_i16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Short
+external fun ffi_did_sidekicks_rust_future_poll_u32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_cancel_u32(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_free_u32(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_complete_u32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Int
+external fun ffi_did_sidekicks_rust_future_poll_i32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_cancel_i32(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_free_i32(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_complete_i32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Int
+external fun ffi_did_sidekicks_rust_future_poll_u64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_cancel_u64(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_free_u64(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_complete_u64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun ffi_did_sidekicks_rust_future_poll_i64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_cancel_i64(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_free_i64(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_complete_i64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+external fun ffi_did_sidekicks_rust_future_poll_f32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_cancel_f32(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_free_f32(`handle`: Long,
+): Unit
+external fun ffi_did_sidekicks_rust_future_complete_f32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Float
-fun ffi_did_sidekicks_rust_future_poll_f64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+external fun ffi_did_sidekicks_rust_future_poll_f64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
 ): Unit
-fun ffi_did_sidekicks_rust_future_cancel_f64(`handle`: Long,
+external fun ffi_did_sidekicks_rust_future_cancel_f64(`handle`: Long,
 ): Unit
-fun ffi_did_sidekicks_rust_future_free_f64(`handle`: Long,
+external fun ffi_did_sidekicks_rust_future_free_f64(`handle`: Long,
 ): Unit
-fun ffi_did_sidekicks_rust_future_complete_f64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+external fun ffi_did_sidekicks_rust_future_complete_f64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Double
-fun ffi_did_sidekicks_rust_future_poll_pointer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+external fun ffi_did_sidekicks_rust_future_poll_rust_buffer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
 ): Unit
-fun ffi_did_sidekicks_rust_future_cancel_pointer(`handle`: Long,
+external fun ffi_did_sidekicks_rust_future_cancel_rust_buffer(`handle`: Long,
 ): Unit
-fun ffi_did_sidekicks_rust_future_free_pointer(`handle`: Long,
+external fun ffi_did_sidekicks_rust_future_free_rust_buffer(`handle`: Long,
 ): Unit
-fun ffi_did_sidekicks_rust_future_complete_pointer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-): Pointer
-fun ffi_did_sidekicks_rust_future_poll_rust_buffer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_cancel_rust_buffer(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_free_rust_buffer(`handle`: Long,
-): Unit
-fun ffi_did_sidekicks_rust_future_complete_rust_buffer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+external fun ffi_did_sidekicks_rust_future_complete_rust_buffer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
-fun ffi_did_sidekicks_rust_future_poll_void(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+external fun ffi_did_sidekicks_rust_future_poll_void(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
 ): Unit
-fun ffi_did_sidekicks_rust_future_cancel_void(`handle`: Long,
+external fun ffi_did_sidekicks_rust_future_cancel_void(`handle`: Long,
 ): Unit
-fun ffi_did_sidekicks_rust_future_free_void(`handle`: Long,
+external fun ffi_did_sidekicks_rust_future_free_void(`handle`: Long,
 ): Unit
-fun ffi_did_sidekicks_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+external fun ffi_did_sidekicks_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
 
+    
 }
 
 private fun uniffiCheckContractApiVersion(lib: IntegrityCheckingUniffiLib) {
     // Get the bindings contract version from our ComponentInterface
-    val bindings_contract_version = 29
+    val bindings_contract_version = 30
     // Get the scaffolding contract version by calling the into the dylib
     val scaffolding_contract_version = lib.ffi_did_sidekicks_uniffi_contract_version()
     if (bindings_contract_version != scaffolding_contract_version) {
@@ -1410,157 +1122,157 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_did_sidekicks_checksum_func_get_key_from_did_doc() != 6953.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_assertion_method() != 15810.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_assertion_method() != 37191.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_authentication() != 32973.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_authentication() != 55028.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_capability_delegation() != 37661.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_capability_delegation() != 6044.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_capability_invocation() != 55778.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_capability_invocation() != 61251.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_context() != 58325.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_context() != 41159.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_controller() != 4602.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_controller() != 47496.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_deactivated() != 2048.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_deactivated() != 51038.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_id() != 6137.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_id() != 15300.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_key() != 61960.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_key() != 3957.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_key_by_fragment() != 52536.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_key_by_fragment() != 56152.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_key_by_method_id() != 36535.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_key_by_method_id() != 58619.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_profile_version() != 18008.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_profile_version() != 51378.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_verification_method() != 62805.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_get_verification_method() != 57161.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_to_json() != 51838.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_diddoc_to_json() != 11627.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_diddocextended_get_did_doc() != 63079.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_diddocextended_get_did_doc() != 34983.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_diddocextended_get_did_method_parameters() != 42171.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_diddocextended_get_did_method_parameters() != 19911.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didlogentryjsonschema_get_json_schema() != 34604.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didlogentryjsonschema_get_json_schema() != 46254.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didlogentryvalidator_validate() != 32770.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didlogentryvalidator_validate() != 36939.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_get_bool_value() != 2225.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_get_bool_value() != 27336.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_get_f64_value() != 59134.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_get_f64_value() != 26088.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_get_i64_value() != 38334.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_get_i64_value() != 61208.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_get_json_text() != 13794.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_get_json_text() != 9466.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_get_name() != 39654.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_get_name() != 15801.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_get_string_array_value() != 219.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_get_string_array_value() != 32815.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_get_string_value() != 24640.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_get_string_value() != 39370.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_get_u64_value() != 59207.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_get_u64_value() != 50082.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_array() != 11830.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_array() != 58978.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_bool() != 64930.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_bool() != 28859.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_empty_array() != 30471.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_empty_array() != 16312.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_f64() != 58071.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_f64() != 15255.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_i64() != 4508.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_i64() != 40923.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_null() != 26721.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_null() != 2529.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_object() != 6033.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_object() != 53543.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_string() != 34423.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_string() != 24437.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_string_array() != 16699.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_string_array() != 33516.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_u64() != 29426.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_didmethodparameter_is_u64() != 46179.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_ed25519signature_to_hex() != 54711.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_ed25519signature_to_hex() != 57229.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_ed25519signature_to_multibase() != 12576.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_ed25519signature_to_multibase() != 48986.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_ed25519signingkey_get_verifying_key() != 14397.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_ed25519signingkey_get_verifying_key() != 57053.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_ed25519signingkey_sign() != 44879.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_ed25519signingkey_sign() != 50415.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_ed25519signingkey_sign_hex() != 43226.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_ed25519signingkey_sign_hex() != 38120.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_ed25519signingkey_to_multibase() != 57237.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_ed25519signingkey_to_multibase() != 29113.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_ed25519signingkey_write_pkcs8_pem_file() != 5046.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_ed25519signingkey_write_pkcs8_pem_file() != 26802.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_ed25519verifyingkey_to_multibase() != 60193.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_ed25519verifyingkey_to_multibase() != 6485.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_ed25519verifyingkey_verify_strict() != 7365.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_ed25519verifyingkey_verify_strict() != 32628.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_ed25519verifyingkey_verify_strict_from_hex() != 60483.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_ed25519verifyingkey_verify_strict_from_hex() != 55397.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_ed25519verifyingkey_write_public_key_pem_file() != 61788.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_ed25519verifyingkey_write_public_key_pem_file() != 39293.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_eddsajcs2022cryptosuite_add_proof() != 32337.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_eddsajcs2022cryptosuite_add_proof() != 35568.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_eddsajcs2022cryptosuite_verify_proof() != 26174.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_eddsajcs2022cryptosuite_verify_proof() != 15210.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_jcssha256hasher_base58btc_encode_multihash() != 9605.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_jcssha256hasher_base58btc_encode_multihash() != 20039.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_did_sidekicks_checksum_method_jcssha256hasher_encode_hex() != 62647.toShort()) {
+    if (lib.uniffi_did_sidekicks_checksum_method_jcssha256hasher_encode_hex() != 53677.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_did_sidekicks_checksum_constructor_cryptosuiteproofoptions_build() != 60667.toShort()) {
@@ -1620,7 +1332,10 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
  * @suppress
  */
 public fun uniffiEnsureInitialized() {
-    UniffiLib.INSTANCE
+    IntegrityCheckingUniffiLib
+    // UniffiLib() initialized as objects are used, but we still need to explicitly
+    // reference it so initialization across crates works as expected.
+    UniffiLib
 }
 
 // Async support
@@ -1687,11 +1402,22 @@ inline fun <T : Disposable?, R> T.use(block: (T) -> R) =
     }
 
 /** 
+ * Placeholder object used to signal that we're constructing an interface with a FFI handle.
+ *
+ * This is the first argument for interface constructors that input a raw handle. It exists is that
+ * so we can avoid signature conflicts when an interface has a regular constructor than inputs a
+ * Long.
+ *
+ * @suppress
+ * */
+object UniffiWithHandle
+
+/** 
  * Used to instantiate an interface without an actual pointer, for fakes in tests, mostly.
  *
  * @suppress
  * */
-object NoPointer
+object NoHandle
 /**
  * The cleaner interface for Object finalization code to run.
  * This is the entry point to any implementation that we're using.
@@ -1907,21 +1633,18 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
 }
 
 
-// This template implements a class for working with a Rust struct via a Pointer/Arc<T>
+// This template implements a class for working with a Rust struct via a handle
 // to the live Rust struct on the other side of the FFI.
-//
-// Each instance implements core operations for working with the Rust `Arc<T>` and the
-// Kotlin Pointer to work with the live Rust struct on the other side of the FFI.
 //
 // There's some subtlety here, because we have to be careful not to operate on a Rust
 // struct after it has been dropped, and because we must expose a public API for freeing
 // theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
 //
-//   * Each instance holds an opaque pointer to the underlying Rust struct.
-//     Method calls need to read this pointer from the object's state and pass it in to
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
 //     the Rust FFI.
 //
-//   * When an instance is no longer needed, its pointer should be passed to a
+//   * When an instance is no longer needed, its handle should be passed to a
 //     special destructor function provided by the Rust FFI, which will drop the
 //     underlying Rust struct.
 //
@@ -1946,13 +1669,13 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
 //      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
 //         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
 //
-// If we try to implement this with mutual exclusion on access to the pointer, there is the
+// If we try to implement this with mutual exclusion on access to the handle, there is the
 // possibility of a race between a method call and a concurrent call to `destroy`:
 //
-//    * Thread A starts a method call, reads the value of the pointer, but is interrupted
-//      before it can pass the pointer over the FFI to Rust.
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
 //    * Thread B calls `destroy` and frees the underlying Rust struct.
-//    * Thread A resumes, passing the already-read pointer value to Rust and triggering
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
 //      a use-after-free.
 //
 // One possible solution would be to use a `ReadWriteLock`, with each method call taking
@@ -2013,24 +1736,30 @@ public interface CryptoSuiteProofOptionsInterface {
 open class CryptoSuiteProofOptions: Disposable, AutoCloseable, CryptoSuiteProofOptionsInterface
 {
 
-    constructor(pointer: Pointer) {
-        this.pointer = pointer
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
     }
 
     /**
+     * @suppress
+     *
      * This constructor can be used to instantiate a fake object. Only used for tests. Any
      * attempt to actually use an object constructed this way will fail as there is no
      * connected Rust object.
      */
     @Suppress("UNUSED_PARAMETER")
-    constructor(noPointer: NoPointer) {
-        this.pointer = null
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
     }
 
-    protected val pointer: Pointer?
-    protected val cleanable: UniffiCleaner.Cleanable
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
 
     private val wasDestroyed = AtomicBoolean(false)
     private val callCounter = AtomicLong(1)
@@ -2041,7 +1770,7 @@ open class CryptoSuiteProofOptions: Disposable, AutoCloseable, CryptoSuiteProofO
         if (this.wasDestroyed.compareAndSet(false, true)) {
             // This decrement always matches the initial count of 1 given at creation time.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
@@ -2051,7 +1780,7 @@ open class CryptoSuiteProofOptions: Disposable, AutoCloseable, CryptoSuiteProofO
         this.destroy()
     }
 
-    internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
         do {
@@ -2063,36 +1792,47 @@ open class CryptoSuiteProofOptions: Disposable, AutoCloseable, CryptoSuiteProofO
                 throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
             }
         } while (! this.callCounter.compareAndSet(c, c + 1L))
-        // Now we can safely do the method call without the pointer being freed concurrently.
+        // Now we can safely do the method call without the handle being freed concurrently.
         try {
-            return block(this.uniffiClonePointer())
+            return block(this.uniffiCloneHandle())
         } finally {
             // This decrement always matches the increment we performed above.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
 
     // Use a static inner class instead of a closure so as not to accidentally
     // capture `this` as part of the cleanable's action.
-    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
         override fun run() {
-            pointer?.let { ptr ->
-                uniffiRustCall { status ->
-                    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_free_cryptosuiteproofoptions(ptr, status)
-                }
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_did_sidekicks_fn_free_cryptosuiteproofoptions(handle, status)
             }
         }
     }
 
-    fun uniffiClonePointer(): Pointer {
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
         return uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_clone_cryptosuiteproofoptions(pointer!!, status)
+            UniffiLib.uniffi_did_sidekicks_fn_clone_cryptosuiteproofoptions(handle, status)
         }
     }
 
     
+
+    
+
 
     
     companion object {
@@ -2110,7 +1850,8 @@ open class CryptoSuiteProofOptions: Disposable, AutoCloseable, CryptoSuiteProofO
      */ fun `build`(): CryptoSuiteProofOptions {
             return FfiConverterTypeCryptoSuiteProofOptions.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_constructor_cryptosuiteproofoptions_build(
+    UniffiLib.uniffi_did_sidekicks_fn_constructor_cryptosuiteproofoptions_build(
+    
         _status)
 }
     )
@@ -2126,7 +1867,8 @@ open class CryptoSuiteProofOptions: Disposable, AutoCloseable, CryptoSuiteProofO
     @Throws(DidSidekicksException::class) fun `newEddsaJcs2022`(`createdDtRfc3339`: kotlin.String?, `verificationMethod`: kotlin.String, `proofPurpose`: kotlin.String?, `context`: List<kotlin.String>?, `challenge`: kotlin.String?): CryptoSuiteProofOptions {
             return FfiConverterTypeCryptoSuiteProofOptions.lift(
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_constructor_cryptosuiteproofoptions_new_eddsa_jcs_2022(
+    UniffiLib.uniffi_did_sidekicks_fn_constructor_cryptosuiteproofoptions_new_eddsa_jcs_2022(
+    
         FfiConverterOptionalString.lower(`createdDtRfc3339`),FfiConverterString.lower(`verificationMethod`),FfiConverterOptionalString.lower(`proofPurpose`),FfiConverterOptionalSequenceString.lower(`context`),FfiConverterOptionalString.lower(`challenge`),_status)
 }
     )
@@ -2138,50 +1880,43 @@ open class CryptoSuiteProofOptions: Disposable, AutoCloseable, CryptoSuiteProofO
     
 }
 
+
 /**
  * @suppress
  */
-public object FfiConverterTypeCryptoSuiteProofOptions: FfiConverter<CryptoSuiteProofOptions, Pointer> {
-
-    override fun lower(value: CryptoSuiteProofOptions): Pointer {
-        return value.uniffiClonePointer()
+public object FfiConverterTypeCryptoSuiteProofOptions: FfiConverter<CryptoSuiteProofOptions, Long> {
+    override fun lower(value: CryptoSuiteProofOptions): Long {
+        return value.uniffiCloneHandle()
     }
 
-    override fun lift(value: Pointer): CryptoSuiteProofOptions {
-        return CryptoSuiteProofOptions(value)
+    override fun lift(value: Long): CryptoSuiteProofOptions {
+        return CryptoSuiteProofOptions(UniffiWithHandle, value)
     }
 
     override fun read(buf: ByteBuffer): CryptoSuiteProofOptions {
-        // The Rust code always writes pointers as 8 bytes, and will
-        // fail to compile if they don't fit.
-        return lift(Pointer(buf.getLong()))
+        return lift(buf.getLong())
     }
 
     override fun allocationSize(value: CryptoSuiteProofOptions) = 8UL
 
     override fun write(value: CryptoSuiteProofOptions, buf: ByteBuffer) {
-        // The Rust code always expects pointers written as 8 bytes,
-        // and will fail to compile if they don't fit.
-        buf.putLong(Pointer.nativeValue(lower(value)))
+        buf.putLong(lower(value))
     }
 }
 
 
-// This template implements a class for working with a Rust struct via a Pointer/Arc<T>
+// This template implements a class for working with a Rust struct via a handle
 // to the live Rust struct on the other side of the FFI.
-//
-// Each instance implements core operations for working with the Rust `Arc<T>` and the
-// Kotlin Pointer to work with the live Rust struct on the other side of the FFI.
 //
 // There's some subtlety here, because we have to be careful not to operate on a Rust
 // struct after it has been dropped, and because we must expose a public API for freeing
 // theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
 //
-//   * Each instance holds an opaque pointer to the underlying Rust struct.
-//     Method calls need to read this pointer from the object's state and pass it in to
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
 //     the Rust FFI.
 //
-//   * When an instance is no longer needed, its pointer should be passed to a
+//   * When an instance is no longer needed, its handle should be passed to a
 //     special destructor function provided by the Rust FFI, which will drop the
 //     underlying Rust struct.
 //
@@ -2206,13 +1941,13 @@ public object FfiConverterTypeCryptoSuiteProofOptions: FfiConverter<CryptoSuiteP
 //      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
 //         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
 //
-// If we try to implement this with mutual exclusion on access to the pointer, there is the
+// If we try to implement this with mutual exclusion on access to the handle, there is the
 // possibility of a race between a method call and a concurrent call to `destroy`:
 //
-//    * Thread A starts a method call, reads the value of the pointer, but is interrupted
-//      before it can pass the pointer over the FFI to Rust.
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
 //    * Thread B calls `destroy` and frees the underlying Rust struct.
-//    * Thread A resumes, passing the already-read pointer value to Rust and triggering
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
 //      a use-after-free.
 //
 // One possible solution would be to use a `ReadWriteLock`, with each method call taking
@@ -2287,24 +2022,30 @@ public interface DataIntegrityProofInterface {
 open class DataIntegrityProof: Disposable, AutoCloseable, DataIntegrityProofInterface
 {
 
-    constructor(pointer: Pointer) {
-        this.pointer = pointer
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
     }
 
     /**
+     * @suppress
+     *
      * This constructor can be used to instantiate a fake object. Only used for tests. Any
      * attempt to actually use an object constructed this way will fail as there is no
      * connected Rust object.
      */
     @Suppress("UNUSED_PARAMETER")
-    constructor(noPointer: NoPointer) {
-        this.pointer = null
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
     }
 
-    protected val pointer: Pointer?
-    protected val cleanable: UniffiCleaner.Cleanable
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
 
     private val wasDestroyed = AtomicBoolean(false)
     private val callCounter = AtomicLong(1)
@@ -2315,7 +2056,7 @@ open class DataIntegrityProof: Disposable, AutoCloseable, DataIntegrityProofInte
         if (this.wasDestroyed.compareAndSet(false, true)) {
             // This decrement always matches the initial count of 1 given at creation time.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
@@ -2325,7 +2066,7 @@ open class DataIntegrityProof: Disposable, AutoCloseable, DataIntegrityProofInte
         this.destroy()
     }
 
-    internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
         do {
@@ -2337,36 +2078,47 @@ open class DataIntegrityProof: Disposable, AutoCloseable, DataIntegrityProofInte
                 throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
             }
         } while (! this.callCounter.compareAndSet(c, c + 1L))
-        // Now we can safely do the method call without the pointer being freed concurrently.
+        // Now we can safely do the method call without the handle being freed concurrently.
         try {
-            return block(this.uniffiClonePointer())
+            return block(this.uniffiCloneHandle())
         } finally {
             // This decrement always matches the increment we performed above.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
 
     // Use a static inner class instead of a closure so as not to accidentally
     // capture `this` as part of the cleanable's action.
-    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
         override fun run() {
-            pointer?.let { ptr ->
-                uniffiRustCall { status ->
-                    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_free_dataintegrityproof(ptr, status)
-                }
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_did_sidekicks_fn_free_dataintegrityproof(handle, status)
             }
         }
     }
 
-    fun uniffiClonePointer(): Pointer {
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
         return uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_clone_dataintegrityproof(pointer!!, status)
+            UniffiLib.uniffi_did_sidekicks_fn_clone_dataintegrityproof(handle, status)
         }
     }
 
     
+
+    
+
 
     
     companion object {
@@ -2377,7 +2129,8 @@ open class DataIntegrityProof: Disposable, AutoCloseable, DataIntegrityProofInte
     @Throws(DidSidekicksException::class) fun `fromJsonString`(`json`: kotlin.String): DataIntegrityProof {
             return FfiConverterTypeDataIntegrityProof.lift(
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_constructor_dataintegrityproof_from_json_string(
+    UniffiLib.uniffi_did_sidekicks_fn_constructor_dataintegrityproof_from_json_string(
+    
         FfiConverterString.lower(`json`),_status)
 }
     )
@@ -2389,50 +2142,43 @@ open class DataIntegrityProof: Disposable, AutoCloseable, DataIntegrityProofInte
     
 }
 
+
 /**
  * @suppress
  */
-public object FfiConverterTypeDataIntegrityProof: FfiConverter<DataIntegrityProof, Pointer> {
-
-    override fun lower(value: DataIntegrityProof): Pointer {
-        return value.uniffiClonePointer()
+public object FfiConverterTypeDataIntegrityProof: FfiConverter<DataIntegrityProof, Long> {
+    override fun lower(value: DataIntegrityProof): Long {
+        return value.uniffiCloneHandle()
     }
 
-    override fun lift(value: Pointer): DataIntegrityProof {
-        return DataIntegrityProof(value)
+    override fun lift(value: Long): DataIntegrityProof {
+        return DataIntegrityProof(UniffiWithHandle, value)
     }
 
     override fun read(buf: ByteBuffer): DataIntegrityProof {
-        // The Rust code always writes pointers as 8 bytes, and will
-        // fail to compile if they don't fit.
-        return lift(Pointer(buf.getLong()))
+        return lift(buf.getLong())
     }
 
     override fun allocationSize(value: DataIntegrityProof) = 8UL
 
     override fun write(value: DataIntegrityProof, buf: ByteBuffer) {
-        // The Rust code always expects pointers written as 8 bytes,
-        // and will fail to compile if they don't fit.
-        buf.putLong(Pointer.nativeValue(lower(value)))
+        buf.putLong(lower(value))
     }
 }
 
 
-// This template implements a class for working with a Rust struct via a Pointer/Arc<T>
+// This template implements a class for working with a Rust struct via a handle
 // to the live Rust struct on the other side of the FFI.
-//
-// Each instance implements core operations for working with the Rust `Arc<T>` and the
-// Kotlin Pointer to work with the live Rust struct on the other side of the FFI.
 //
 // There's some subtlety here, because we have to be careful not to operate on a Rust
 // struct after it has been dropped, and because we must expose a public API for freeing
 // theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
 //
-//   * Each instance holds an opaque pointer to the underlying Rust struct.
-//     Method calls need to read this pointer from the object's state and pass it in to
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
 //     the Rust FFI.
 //
-//   * When an instance is no longer needed, its pointer should be passed to a
+//   * When an instance is no longer needed, its handle should be passed to a
 //     special destructor function provided by the Rust FFI, which will drop the
 //     underlying Rust struct.
 //
@@ -2457,13 +2203,13 @@ public object FfiConverterTypeDataIntegrityProof: FfiConverter<DataIntegrityProo
 //      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
 //         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
 //
-// If we try to implement this with mutual exclusion on access to the pointer, there is the
+// If we try to implement this with mutual exclusion on access to the handle, there is the
 // possibility of a race between a method call and a concurrent call to `destroy`:
 //
-//    * Thread A starts a method call, reads the value of the pointer, but is interrupted
-//      before it can pass the pointer over the FFI to Rust.
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
 //    * Thread B calls `destroy` and frees the underlying Rust struct.
-//    * Thread A resumes, passing the already-read pointer value to Rust and triggering
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
 //      a use-after-free.
 //
 // One possible solution would be to use a `ReadWriteLock`, with each method call taking
@@ -2530,6 +2276,10 @@ public interface DidDocInterface {
     
     fun `getController`(): kotlin.String?
     
+    /**
+     * Returns true if the did document contains an entry `deactivated` with the value true.
+     * This is not part of the did specification and should NOT be used.
+     */
     fun `getDeactivated`(): kotlin.Boolean
     
     fun `getId`(): kotlin.String
@@ -2586,24 +2336,30 @@ public interface DidDocInterface {
 open class DidDoc: Disposable, AutoCloseable, DidDocInterface
 {
 
-    constructor(pointer: Pointer) {
-        this.pointer = pointer
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
     }
 
     /**
+     * @suppress
+     *
      * This constructor can be used to instantiate a fake object. Only used for tests. Any
      * attempt to actually use an object constructed this way will fail as there is no
      * connected Rust object.
      */
     @Suppress("UNUSED_PARAMETER")
-    constructor(noPointer: NoPointer) {
-        this.pointer = null
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
     }
 
-    protected val pointer: Pointer?
-    protected val cleanable: UniffiCleaner.Cleanable
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
 
     private val wasDestroyed = AtomicBoolean(false)
     private val callCounter = AtomicLong(1)
@@ -2614,7 +2370,7 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
         if (this.wasDestroyed.compareAndSet(false, true)) {
             // This decrement always matches the initial count of 1 given at creation time.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
@@ -2624,7 +2380,7 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
         this.destroy()
     }
 
-    internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
         do {
@@ -2636,41 +2392,50 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
                 throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
             }
         } while (! this.callCounter.compareAndSet(c, c + 1L))
-        // Now we can safely do the method call without the pointer being freed concurrently.
+        // Now we can safely do the method call without the handle being freed concurrently.
         try {
-            return block(this.uniffiClonePointer())
+            return block(this.uniffiCloneHandle())
         } finally {
             // This decrement always matches the increment we performed above.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
 
     // Use a static inner class instead of a closure so as not to accidentally
     // capture `this` as part of the cleanable's action.
-    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
         override fun run() {
-            pointer?.let { ptr ->
-                uniffiRustCall { status ->
-                    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_free_diddoc(ptr, status)
-                }
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_did_sidekicks_fn_free_diddoc(handle, status)
             }
         }
     }
 
-    fun uniffiClonePointer(): Pointer {
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
         return uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_clone_diddoc(pointer!!, status)
+            UniffiLib.uniffi_did_sidekicks_fn_clone_diddoc(handle, status)
         }
     }
 
     override fun `getAssertionMethod`(): List<VerificationMethod> {
             return FfiConverterSequenceTypeVerificationMethod.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_assertion_method(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_diddoc_get_assertion_method(
+        it,
+        _status)
 }
     }
     )
@@ -2679,10 +2444,11 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
 
     override fun `getAuthentication`(): List<VerificationMethod> {
             return FfiConverterSequenceTypeVerificationMethod.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_authentication(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_diddoc_get_authentication(
+        it,
+        _status)
 }
     }
     )
@@ -2691,10 +2457,11 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
 
     override fun `getCapabilityDelegation`(): List<VerificationMethod> {
             return FfiConverterSequenceTypeVerificationMethod.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_capability_delegation(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_diddoc_get_capability_delegation(
+        it,
+        _status)
 }
     }
     )
@@ -2703,10 +2470,11 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
 
     override fun `getCapabilityInvocation`(): List<VerificationMethod> {
             return FfiConverterSequenceTypeVerificationMethod.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_capability_invocation(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_diddoc_get_capability_invocation(
+        it,
+        _status)
 }
     }
     )
@@ -2715,10 +2483,11 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
 
     override fun `getContext`(): List<kotlin.String> {
             return FfiConverterSequenceString.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_context(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_diddoc_get_context(
+        it,
+        _status)
 }
     }
     )
@@ -2727,22 +2496,28 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
 
     override fun `getController`(): kotlin.String? {
             return FfiConverterOptionalString.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_controller(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_diddoc_get_controller(
+        it,
+        _status)
 }
     }
     )
     }
     
 
-    override fun `getDeactivated`(): kotlin.Boolean {
+    
+    /**
+     * Returns true if the did document contains an entry `deactivated` with the value true.
+     * This is not part of the did specification and should NOT be used.
+     */override fun `getDeactivated`(): kotlin.Boolean {
             return FfiConverterBoolean.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_deactivated(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_diddoc_get_deactivated(
+        it,
+        _status)
 }
     }
     )
@@ -2751,10 +2526,11 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
 
     override fun `getId`(): kotlin.String {
             return FfiConverterString.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_id(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_diddoc_get_id(
+        it,
+        _status)
 }
     }
     )
@@ -2772,10 +2548,11 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
      */
     @Throws(DidSidekicksException::class)override fun `getKey`(`keyId`: kotlin.String): Jwk {
             return FfiConverterTypeJwk.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_key(
-        it, FfiConverterString.lower(`keyId`),_status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_diddoc_get_key(
+        it,
+        FfiConverterString.lower(`keyId`),_status)
 }
     }
     )
@@ -2793,10 +2570,11 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
      */
     @Throws(DidSidekicksException::class)override fun `getKeyByFragment`(`keyId`: kotlin.String): Jwk {
             return FfiConverterTypeJwk.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_key_by_fragment(
-        it, FfiConverterString.lower(`keyId`),_status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_diddoc_get_key_by_fragment(
+        it,
+        FfiConverterString.lower(`keyId`),_status)
 }
     }
     )
@@ -2815,10 +2593,11 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
      */
     @Throws(DidSidekicksException::class)override fun `getKeyByMethodId`(`keyId`: kotlin.String): Jwk {
             return FfiConverterTypeJwk.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_key_by_method_id(
-        it, FfiConverterString.lower(`keyId`),_status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_diddoc_get_key_by_method_id(
+        it,
+        FfiConverterString.lower(`keyId`),_status)
 }
     }
     )
@@ -2827,10 +2606,11 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
 
     override fun `getProfileVersion`(): kotlin.String? {
             return FfiConverterOptionalString.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_profile_version(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_diddoc_get_profile_version(
+        it,
+        _status)
 }
     }
     )
@@ -2839,10 +2619,11 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
 
     override fun `getVerificationMethod`(): List<VerificationMethod> {
             return FfiConverterSequenceTypeVerificationMethod.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_get_verification_method(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_diddoc_get_verification_method(
+        it,
+        _status)
 }
     }
     )
@@ -2861,10 +2642,11 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
      */
     @Throws(DidSidekicksException::class)override fun `toJson`(): kotlin.String {
             return FfiConverterString.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddoc_to_json(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_diddoc_to_json(
+        it,
+        _status)
 }
     }
     )
@@ -2872,6 +2654,9 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
     
 
     
+
+    
+
 
     
     companion object {
@@ -2883,7 +2668,8 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
     @Throws(DidSidekicksException::class) fun `fromJson`(`jsonContent`: kotlin.String): DidDoc {
             return FfiConverterTypeDidDoc.lift(
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_constructor_diddoc_from_json(
+    UniffiLib.uniffi_did_sidekicks_fn_constructor_diddoc_from_json(
+    
         FfiConverterString.lower(`jsonContent`),_status)
 }
     )
@@ -2895,50 +2681,43 @@ open class DidDoc: Disposable, AutoCloseable, DidDocInterface
     
 }
 
+
 /**
  * @suppress
  */
-public object FfiConverterTypeDidDoc: FfiConverter<DidDoc, Pointer> {
-
-    override fun lower(value: DidDoc): Pointer {
-        return value.uniffiClonePointer()
+public object FfiConverterTypeDidDoc: FfiConverter<DidDoc, Long> {
+    override fun lower(value: DidDoc): Long {
+        return value.uniffiCloneHandle()
     }
 
-    override fun lift(value: Pointer): DidDoc {
-        return DidDoc(value)
+    override fun lift(value: Long): DidDoc {
+        return DidDoc(UniffiWithHandle, value)
     }
 
     override fun read(buf: ByteBuffer): DidDoc {
-        // The Rust code always writes pointers as 8 bytes, and will
-        // fail to compile if they don't fit.
-        return lift(Pointer(buf.getLong()))
+        return lift(buf.getLong())
     }
 
     override fun allocationSize(value: DidDoc) = 8UL
 
     override fun write(value: DidDoc, buf: ByteBuffer) {
-        // The Rust code always expects pointers written as 8 bytes,
-        // and will fail to compile if they don't fit.
-        buf.putLong(Pointer.nativeValue(lower(value)))
+        buf.putLong(lower(value))
     }
 }
 
 
-// This template implements a class for working with a Rust struct via a Pointer/Arc<T>
+// This template implements a class for working with a Rust struct via a handle
 // to the live Rust struct on the other side of the FFI.
-//
-// Each instance implements core operations for working with the Rust `Arc<T>` and the
-// Kotlin Pointer to work with the live Rust struct on the other side of the FFI.
 //
 // There's some subtlety here, because we have to be careful not to operate on a Rust
 // struct after it has been dropped, and because we must expose a public API for freeing
 // theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
 //
-//   * Each instance holds an opaque pointer to the underlying Rust struct.
-//     Method calls need to read this pointer from the object's state and pass it in to
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
 //     the Rust FFI.
 //
-//   * When an instance is no longer needed, its pointer should be passed to a
+//   * When an instance is no longer needed, its handle should be passed to a
 //     special destructor function provided by the Rust FFI, which will drop the
 //     underlying Rust struct.
 //
@@ -2963,13 +2742,13 @@ public object FfiConverterTypeDidDoc: FfiConverter<DidDoc, Pointer> {
 //      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
 //         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
 //
-// If we try to implement this with mutual exclusion on access to the pointer, there is the
+// If we try to implement this with mutual exclusion on access to the handle, there is the
 // possibility of a race between a method call and a concurrent call to `destroy`:
 //
-//    * Thread A starts a method call, reads the value of the pointer, but is interrupted
-//      before it can pass the pointer over the FFI to Rust.
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
 //    * Thread B calls `destroy` and frees the underlying Rust struct.
-//    * Thread A resumes, passing the already-read pointer value to Rust and triggering
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
 //      a use-after-free.
 //
 // One possible solution would be to use a `ReadWriteLock`, with each method call taking
@@ -3040,24 +2819,30 @@ public interface DidDocExtendedInterface {
 open class DidDocExtended: Disposable, AutoCloseable, DidDocExtendedInterface
 {
 
-    constructor(pointer: Pointer) {
-        this.pointer = pointer
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
     }
 
     /**
+     * @suppress
+     *
      * This constructor can be used to instantiate a fake object. Only used for tests. Any
      * attempt to actually use an object constructed this way will fail as there is no
      * connected Rust object.
      */
     @Suppress("UNUSED_PARAMETER")
-    constructor(noPointer: NoPointer) {
-        this.pointer = null
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
     }
 
-    protected val pointer: Pointer?
-    protected val cleanable: UniffiCleaner.Cleanable
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
 
     private val wasDestroyed = AtomicBoolean(false)
     private val callCounter = AtomicLong(1)
@@ -3068,7 +2853,7 @@ open class DidDocExtended: Disposable, AutoCloseable, DidDocExtendedInterface
         if (this.wasDestroyed.compareAndSet(false, true)) {
             // This decrement always matches the initial count of 1 given at creation time.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
@@ -3078,7 +2863,7 @@ open class DidDocExtended: Disposable, AutoCloseable, DidDocExtendedInterface
         this.destroy()
     }
 
-    internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
         do {
@@ -3090,41 +2875,50 @@ open class DidDocExtended: Disposable, AutoCloseable, DidDocExtendedInterface
                 throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
             }
         } while (! this.callCounter.compareAndSet(c, c + 1L))
-        // Now we can safely do the method call without the pointer being freed concurrently.
+        // Now we can safely do the method call without the handle being freed concurrently.
         try {
-            return block(this.uniffiClonePointer())
+            return block(this.uniffiCloneHandle())
         } finally {
             // This decrement always matches the increment we performed above.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
 
     // Use a static inner class instead of a closure so as not to accidentally
     // capture `this` as part of the cleanable's action.
-    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
         override fun run() {
-            pointer?.let { ptr ->
-                uniffiRustCall { status ->
-                    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_free_diddocextended(ptr, status)
-                }
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_did_sidekicks_fn_free_diddocextended(handle, status)
             }
         }
     }
 
-    fun uniffiClonePointer(): Pointer {
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
         return uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_clone_diddocextended(pointer!!, status)
+            UniffiLib.uniffi_did_sidekicks_fn_clone_diddocextended(handle, status)
         }
     }
 
     override fun `getDidDoc`(): DidDoc {
             return FfiConverterTypeDidDoc.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddocextended_get_did_doc(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_diddocextended_get_did_doc(
+        it,
+        _status)
 }
     }
     )
@@ -3133,10 +2927,11 @@ open class DidDocExtended: Disposable, AutoCloseable, DidDocExtendedInterface
 
     override fun `getDidMethodParameters`(): Map<kotlin.String, DidMethodParameter> {
             return FfiConverterMapStringTypeDidMethodParameter.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_diddocextended_get_did_method_parameters(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_diddocextended_get_did_method_parameters(
+        it,
+        _status)
 }
     }
     )
@@ -3146,55 +2941,54 @@ open class DidDocExtended: Disposable, AutoCloseable, DidDocExtendedInterface
     
 
     
+
+
     
+    
+    /**
+     * @suppress
+     */
     companion object
     
 }
 
+
 /**
  * @suppress
  */
-public object FfiConverterTypeDidDocExtended: FfiConverter<DidDocExtended, Pointer> {
-
-    override fun lower(value: DidDocExtended): Pointer {
-        return value.uniffiClonePointer()
+public object FfiConverterTypeDidDocExtended: FfiConverter<DidDocExtended, Long> {
+    override fun lower(value: DidDocExtended): Long {
+        return value.uniffiCloneHandle()
     }
 
-    override fun lift(value: Pointer): DidDocExtended {
-        return DidDocExtended(value)
+    override fun lift(value: Long): DidDocExtended {
+        return DidDocExtended(UniffiWithHandle, value)
     }
 
     override fun read(buf: ByteBuffer): DidDocExtended {
-        // The Rust code always writes pointers as 8 bytes, and will
-        // fail to compile if they don't fit.
-        return lift(Pointer(buf.getLong()))
+        return lift(buf.getLong())
     }
 
     override fun allocationSize(value: DidDocExtended) = 8UL
 
     override fun write(value: DidDocExtended, buf: ByteBuffer) {
-        // The Rust code always expects pointers written as 8 bytes,
-        // and will fail to compile if they don't fit.
-        buf.putLong(Pointer.nativeValue(lower(value)))
+        buf.putLong(lower(value))
     }
 }
 
 
-// This template implements a class for working with a Rust struct via a Pointer/Arc<T>
+// This template implements a class for working with a Rust struct via a handle
 // to the live Rust struct on the other side of the FFI.
-//
-// Each instance implements core operations for working with the Rust `Arc<T>` and the
-// Kotlin Pointer to work with the live Rust struct on the other side of the FFI.
 //
 // There's some subtlety here, because we have to be careful not to operate on a Rust
 // struct after it has been dropped, and because we must expose a public API for freeing
 // theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
 //
-//   * Each instance holds an opaque pointer to the underlying Rust struct.
-//     Method calls need to read this pointer from the object's state and pass it in to
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
 //     the Rust FFI.
 //
-//   * When an instance is no longer needed, its pointer should be passed to a
+//   * When an instance is no longer needed, its handle should be passed to a
 //     special destructor function provided by the Rust FFI, which will drop the
 //     underlying Rust struct.
 //
@@ -3219,13 +3013,13 @@ public object FfiConverterTypeDidDocExtended: FfiConverter<DidDocExtended, Point
 //      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
 //         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
 //
-// If we try to implement this with mutual exclusion on access to the pointer, there is the
+// If we try to implement this with mutual exclusion on access to the handle, there is the
 // possibility of a race between a method call and a concurrent call to `destroy`:
 //
-//    * Thread A starts a method call, reads the value of the pointer, but is interrupted
-//      before it can pass the pointer over the FFI to Rust.
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
 //    * Thread B calls `destroy` and frees the underlying Rust struct.
-//    * Thread A resumes, passing the already-read pointer value to Rust and triggering
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
 //      a use-after-free.
 //
 // One possible solution would be to use a `ReadWriteLock`, with each method call taking
@@ -3297,24 +3091,30 @@ public interface DidLogEntryJsonSchemaInterface {
 open class DidLogEntryJsonSchema: Disposable, AutoCloseable, DidLogEntryJsonSchemaInterface
 {
 
-    constructor(pointer: Pointer) {
-        this.pointer = pointer
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
     }
 
     /**
+     * @suppress
+     *
      * This constructor can be used to instantiate a fake object. Only used for tests. Any
      * attempt to actually use an object constructed this way will fail as there is no
      * connected Rust object.
      */
     @Suppress("UNUSED_PARAMETER")
-    constructor(noPointer: NoPointer) {
-        this.pointer = null
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
     }
 
-    protected val pointer: Pointer?
-    protected val cleanable: UniffiCleaner.Cleanable
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
 
     private val wasDestroyed = AtomicBoolean(false)
     private val callCounter = AtomicLong(1)
@@ -3325,7 +3125,7 @@ open class DidLogEntryJsonSchema: Disposable, AutoCloseable, DidLogEntryJsonSche
         if (this.wasDestroyed.compareAndSet(false, true)) {
             // This decrement always matches the initial count of 1 given at creation time.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
@@ -3335,7 +3135,7 @@ open class DidLogEntryJsonSchema: Disposable, AutoCloseable, DidLogEntryJsonSche
         this.destroy()
     }
 
-    internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
         do {
@@ -3347,32 +3147,40 @@ open class DidLogEntryJsonSchema: Disposable, AutoCloseable, DidLogEntryJsonSche
                 throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
             }
         } while (! this.callCounter.compareAndSet(c, c + 1L))
-        // Now we can safely do the method call without the pointer being freed concurrently.
+        // Now we can safely do the method call without the handle being freed concurrently.
         try {
-            return block(this.uniffiClonePointer())
+            return block(this.uniffiCloneHandle())
         } finally {
             // This decrement always matches the increment we performed above.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
 
     // Use a static inner class instead of a closure so as not to accidentally
     // capture `this` as part of the cleanable's action.
-    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
         override fun run() {
-            pointer?.let { ptr ->
-                uniffiRustCall { status ->
-                    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_free_didlogentryjsonschema(ptr, status)
-                }
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_did_sidekicks_fn_free_didlogentryjsonschema(handle, status)
             }
         }
     }
 
-    fun uniffiClonePointer(): Pointer {
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
         return uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_clone_didlogentryjsonschema(pointer!!, status)
+            UniffiLib.uniffi_did_sidekicks_fn_clone_didlogentryjsonschema(handle, status)
         }
     }
 
@@ -3381,10 +3189,11 @@ open class DidLogEntryJsonSchema: Disposable, AutoCloseable, DidLogEntryJsonSche
      * Delivers a proper JSON schema (in UTF-8 format) fully describing a DID log entry.
      */override fun `getJsonSchema`(): kotlin.String {
             return FfiConverterString.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didlogentryjsonschema_get_json_schema(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didlogentryjsonschema_get_json_schema(
+        it,
+        _status)
 }
     }
     )
@@ -3394,55 +3203,54 @@ open class DidLogEntryJsonSchema: Disposable, AutoCloseable, DidLogEntryJsonSche
     
 
     
+
+
     
+    
+    /**
+     * @suppress
+     */
     companion object
     
 }
 
+
 /**
  * @suppress
  */
-public object FfiConverterTypeDidLogEntryJsonSchema: FfiConverter<DidLogEntryJsonSchema, Pointer> {
-
-    override fun lower(value: DidLogEntryJsonSchema): Pointer {
-        return value.uniffiClonePointer()
+public object FfiConverterTypeDidLogEntryJsonSchema: FfiConverter<DidLogEntryJsonSchema, Long> {
+    override fun lower(value: DidLogEntryJsonSchema): Long {
+        return value.uniffiCloneHandle()
     }
 
-    override fun lift(value: Pointer): DidLogEntryJsonSchema {
-        return DidLogEntryJsonSchema(value)
+    override fun lift(value: Long): DidLogEntryJsonSchema {
+        return DidLogEntryJsonSchema(UniffiWithHandle, value)
     }
 
     override fun read(buf: ByteBuffer): DidLogEntryJsonSchema {
-        // The Rust code always writes pointers as 8 bytes, and will
-        // fail to compile if they don't fit.
-        return lift(Pointer(buf.getLong()))
+        return lift(buf.getLong())
     }
 
     override fun allocationSize(value: DidLogEntryJsonSchema) = 8UL
 
     override fun write(value: DidLogEntryJsonSchema, buf: ByteBuffer) {
-        // The Rust code always expects pointers written as 8 bytes,
-        // and will fail to compile if they don't fit.
-        buf.putLong(Pointer.nativeValue(lower(value)))
+        buf.putLong(lower(value))
     }
 }
 
 
-// This template implements a class for working with a Rust struct via a Pointer/Arc<T>
+// This template implements a class for working with a Rust struct via a handle
 // to the live Rust struct on the other side of the FFI.
-//
-// Each instance implements core operations for working with the Rust `Arc<T>` and the
-// Kotlin Pointer to work with the live Rust struct on the other side of the FFI.
 //
 // There's some subtlety here, because we have to be careful not to operate on a Rust
 // struct after it has been dropped, and because we must expose a public API for freeing
 // theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
 //
-//   * Each instance holds an opaque pointer to the underlying Rust struct.
-//     Method calls need to read this pointer from the object's state and pass it in to
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
 //     the Rust FFI.
 //
-//   * When an instance is no longer needed, its pointer should be passed to a
+//   * When an instance is no longer needed, its handle should be passed to a
 //     special destructor function provided by the Rust FFI, which will drop the
 //     underlying Rust struct.
 //
@@ -3467,13 +3275,13 @@ public object FfiConverterTypeDidLogEntryJsonSchema: FfiConverter<DidLogEntryJso
 //      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
 //         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
 //
-// If we try to implement this with mutual exclusion on access to the pointer, there is the
+// If we try to implement this with mutual exclusion on access to the handle, there is the
 // possibility of a race between a method call and a concurrent call to `destroy`:
 //
-//    * Thread A starts a method call, reads the value of the pointer, but is interrupted
-//      before it can pass the pointer over the FFI to Rust.
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
 //    * Thread B calls `destroy` and frees the underlying Rust struct.
-//    * Thread A resumes, passing the already-read pointer value to Rust and triggering
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
 //      a use-after-free.
 //
 // One possible solution would be to use a `ReadWriteLock`, with each method call taking
@@ -3559,24 +3367,30 @@ public interface DidLogEntryValidatorInterface {
 open class DidLogEntryValidator: Disposable, AutoCloseable, DidLogEntryValidatorInterface
 {
 
-    constructor(pointer: Pointer) {
-        this.pointer = pointer
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
     }
 
     /**
+     * @suppress
+     *
      * This constructor can be used to instantiate a fake object. Only used for tests. Any
      * attempt to actually use an object constructed this way will fail as there is no
      * connected Rust object.
      */
     @Suppress("UNUSED_PARAMETER")
-    constructor(noPointer: NoPointer) {
-        this.pointer = null
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
     }
 
-    protected val pointer: Pointer?
-    protected val cleanable: UniffiCleaner.Cleanable
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
 
     private val wasDestroyed = AtomicBoolean(false)
     private val callCounter = AtomicLong(1)
@@ -3587,7 +3401,7 @@ open class DidLogEntryValidator: Disposable, AutoCloseable, DidLogEntryValidator
         if (this.wasDestroyed.compareAndSet(false, true)) {
             // This decrement always matches the initial count of 1 given at creation time.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
@@ -3597,7 +3411,7 @@ open class DidLogEntryValidator: Disposable, AutoCloseable, DidLogEntryValidator
         this.destroy()
     }
 
-    internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
         do {
@@ -3609,32 +3423,40 @@ open class DidLogEntryValidator: Disposable, AutoCloseable, DidLogEntryValidator
                 throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
             }
         } while (! this.callCounter.compareAndSet(c, c + 1L))
-        // Now we can safely do the method call without the pointer being freed concurrently.
+        // Now we can safely do the method call without the handle being freed concurrently.
         try {
-            return block(this.uniffiClonePointer())
+            return block(this.uniffiCloneHandle())
         } finally {
             // This decrement always matches the increment we performed above.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
 
     // Use a static inner class instead of a closure so as not to accidentally
     // capture `this` as part of the cleanable's action.
-    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
         override fun run() {
-            pointer?.let { ptr ->
-                uniffiRustCall { status ->
-                    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_free_didlogentryvalidator(ptr, status)
-                }
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_did_sidekicks_fn_free_didlogentryvalidator(handle, status)
             }
         }
     }
 
-    fun uniffiClonePointer(): Pointer {
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
         return uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_clone_didlogentryvalidator(pointer!!, status)
+            UniffiLib.uniffi_did_sidekicks_fn_clone_didlogentryvalidator(handle, status)
         }
     }
 
@@ -3646,16 +3468,20 @@ open class DidLogEntryValidator: Disposable, AutoCloseable, DidLogEntryValidator
      */
     @Throws(DidLogEntryValidatorException::class)override fun `validate`(`instance`: kotlin.String)
         = 
-    callWithPointer {
+    callWithHandle {
     uniffiRustCallWithError(DidLogEntryValidatorException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didlogentryvalidator_validate(
-        it, FfiConverterString.lower(`instance`),_status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didlogentryvalidator_validate(
+        it,
+        FfiConverterString.lower(`instance`),_status)
 }
     }
     
     
 
     
+
+    
+
 
     
     companion object {
@@ -3665,7 +3491,8 @@ open class DidLogEntryValidator: Disposable, AutoCloseable, DidLogEntryValidator
      */ fun `from`(`schema`: DidLogEntryJsonSchema): DidLogEntryValidator {
             return FfiConverterTypeDidLogEntryValidator.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_constructor_didlogentryvalidator_from(
+    UniffiLib.uniffi_did_sidekicks_fn_constructor_didlogentryvalidator_from(
+    
         FfiConverterTypeDidLogEntryJsonSchema.lower(`schema`),_status)
 }
     )
@@ -3677,50 +3504,43 @@ open class DidLogEntryValidator: Disposable, AutoCloseable, DidLogEntryValidator
     
 }
 
+
 /**
  * @suppress
  */
-public object FfiConverterTypeDidLogEntryValidator: FfiConverter<DidLogEntryValidator, Pointer> {
-
-    override fun lower(value: DidLogEntryValidator): Pointer {
-        return value.uniffiClonePointer()
+public object FfiConverterTypeDidLogEntryValidator: FfiConverter<DidLogEntryValidator, Long> {
+    override fun lower(value: DidLogEntryValidator): Long {
+        return value.uniffiCloneHandle()
     }
 
-    override fun lift(value: Pointer): DidLogEntryValidator {
-        return DidLogEntryValidator(value)
+    override fun lift(value: Long): DidLogEntryValidator {
+        return DidLogEntryValidator(UniffiWithHandle, value)
     }
 
     override fun read(buf: ByteBuffer): DidLogEntryValidator {
-        // The Rust code always writes pointers as 8 bytes, and will
-        // fail to compile if they don't fit.
-        return lift(Pointer(buf.getLong()))
+        return lift(buf.getLong())
     }
 
     override fun allocationSize(value: DidLogEntryValidator) = 8UL
 
     override fun write(value: DidLogEntryValidator, buf: ByteBuffer) {
-        // The Rust code always expects pointers written as 8 bytes,
-        // and will fail to compile if they don't fit.
-        buf.putLong(Pointer.nativeValue(lower(value)))
+        buf.putLong(lower(value))
     }
 }
 
 
-// This template implements a class for working with a Rust struct via a Pointer/Arc<T>
+// This template implements a class for working with a Rust struct via a handle
 // to the live Rust struct on the other side of the FFI.
-//
-// Each instance implements core operations for working with the Rust `Arc<T>` and the
-// Kotlin Pointer to work with the live Rust struct on the other side of the FFI.
 //
 // There's some subtlety here, because we have to be careful not to operate on a Rust
 // struct after it has been dropped, and because we must expose a public API for freeing
 // theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
 //
-//   * Each instance holds an opaque pointer to the underlying Rust struct.
-//     Method calls need to read this pointer from the object's state and pass it in to
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
 //     the Rust FFI.
 //
-//   * When an instance is no longer needed, its pointer should be passed to a
+//   * When an instance is no longer needed, its handle should be passed to a
 //     special destructor function provided by the Rust FFI, which will drop the
 //     underlying Rust struct.
 //
@@ -3745,13 +3565,13 @@ public object FfiConverterTypeDidLogEntryValidator: FfiConverter<DidLogEntryVali
 //      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
 //         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
 //
-// If we try to implement this with mutual exclusion on access to the pointer, there is the
+// If we try to implement this with mutual exclusion on access to the handle, there is the
 // possibility of a race between a method call and a concurrent call to `destroy`:
 //
-//    * Thread A starts a method call, reads the value of the pointer, but is interrupted
-//      before it can pass the pointer over the FFI to Rust.
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
 //    * Thread B calls `destroy` and frees the underlying Rust struct.
-//    * Thread A resumes, passing the already-read pointer value to Rust and triggering
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
 //      a use-after-free.
 //
 // One possible solution would be to use a `ReadWriteLock`, with each method call taking
@@ -3882,24 +3702,30 @@ public interface DidMethodParameterInterface {
 open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInterface
 {
 
-    constructor(pointer: Pointer) {
-        this.pointer = pointer
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
     }
 
     /**
+     * @suppress
+     *
      * This constructor can be used to instantiate a fake object. Only used for tests. Any
      * attempt to actually use an object constructed this way will fail as there is no
      * connected Rust object.
      */
     @Suppress("UNUSED_PARAMETER")
-    constructor(noPointer: NoPointer) {
-        this.pointer = null
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
     }
 
-    protected val pointer: Pointer?
-    protected val cleanable: UniffiCleaner.Cleanable
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
 
     private val wasDestroyed = AtomicBoolean(false)
     private val callCounter = AtomicLong(1)
@@ -3910,7 +3736,7 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
         if (this.wasDestroyed.compareAndSet(false, true)) {
             // This decrement always matches the initial count of 1 given at creation time.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
@@ -3920,7 +3746,7 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
         this.destroy()
     }
 
-    internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
         do {
@@ -3932,32 +3758,40 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
                 throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
             }
         } while (! this.callCounter.compareAndSet(c, c + 1L))
-        // Now we can safely do the method call without the pointer being freed concurrently.
+        // Now we can safely do the method call without the handle being freed concurrently.
         try {
-            return block(this.uniffiClonePointer())
+            return block(this.uniffiCloneHandle())
         } finally {
             // This decrement always matches the increment we performed above.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
 
     // Use a static inner class instead of a closure so as not to accidentally
     // capture `this` as part of the cleanable's action.
-    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
         override fun run() {
-            pointer?.let { ptr ->
-                uniffiRustCall { status ->
-                    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_free_didmethodparameter(ptr, status)
-                }
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_did_sidekicks_fn_free_didmethodparameter(handle, status)
             }
         }
     }
 
-    fun uniffiClonePointer(): Pointer {
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
         return uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_clone_didmethodparameter(pointer!!, status)
+            UniffiLib.uniffi_did_sidekicks_fn_clone_didmethodparameter(handle, status)
         }
     }
 
@@ -3967,10 +3801,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
      * the getter is guaranteed to return a `bool` value.
      */override fun `getBoolValue`(): kotlin.Boolean? {
             return FfiConverterOptionalBoolean.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_get_bool_value(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_get_bool_value(
+        it,
+        _status)
 }
     }
     )
@@ -3983,10 +3818,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
      * the getter is guaranteed to return a `f64` value.
      */override fun `getF64Value`(): kotlin.Double? {
             return FfiConverterOptionalDouble.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_get_f64_value(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_get_f64_value(
+        it,
+        _status)
 }
     }
     )
@@ -3999,10 +3835,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
      * the getter is guaranteed to return a `i64` value.
      */override fun `getI64Value`(): kotlin.Long? {
             return FfiConverterOptionalLong.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_get_i64_value(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_get_i64_value(
+        it,
+        _status)
 }
     }
     )
@@ -4011,10 +3848,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
 
     override fun `getJsonText`(): kotlin.String {
             return FfiConverterString.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_get_json_text(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_get_json_text(
+        it,
+        _status)
 }
     }
     )
@@ -4023,10 +3861,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
 
     override fun `getName`(): kotlin.String {
             return FfiConverterString.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_get_name(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_get_name(
+        it,
+        _status)
 }
     }
     )
@@ -4039,10 +3878,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
      * the getter is guaranteed to return a ``string array.
      */override fun `getStringArrayValue`(): List<kotlin.String>? {
             return FfiConverterOptionalSequenceString.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_get_string_array_value(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_get_string_array_value(
+        it,
+        _status)
 }
     }
     )
@@ -4055,10 +3895,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
      * the getter is guaranteed to return a `string` value.
      */override fun `getStringValue`(): kotlin.String? {
             return FfiConverterOptionalString.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_get_string_value(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_get_string_value(
+        it,
+        _status)
 }
     }
     )
@@ -4071,10 +3912,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
      * the getter is guaranteed to return a `u64` value.
      */override fun `getU64Value`(): kotlin.ULong? {
             return FfiConverterOptionalULong.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_get_u64_value(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_get_u64_value(
+        it,
+        _status)
 }
     }
     )
@@ -4083,10 +3925,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
 
     override fun `isArray`(): kotlin.Boolean {
             return FfiConverterBoolean.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_is_array(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_is_array(
+        it,
+        _status)
 }
     }
     )
@@ -4095,10 +3938,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
 
     override fun `isBool`(): kotlin.Boolean {
             return FfiConverterBoolean.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_is_bool(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_is_bool(
+        it,
+        _status)
 }
     }
     )
@@ -4107,10 +3951,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
 
     override fun `isEmptyArray`(): kotlin.Boolean {
             return FfiConverterBoolean.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_is_empty_array(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_is_empty_array(
+        it,
+        _status)
 }
     }
     )
@@ -4119,10 +3964,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
 
     override fun `isF64`(): kotlin.Boolean {
             return FfiConverterBoolean.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_is_f64(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_is_f64(
+        it,
+        _status)
 }
     }
     )
@@ -4131,10 +3977,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
 
     override fun `isI64`(): kotlin.Boolean {
             return FfiConverterBoolean.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_is_i64(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_is_i64(
+        it,
+        _status)
 }
     }
     )
@@ -4143,10 +3990,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
 
     override fun `isNull`(): kotlin.Boolean {
             return FfiConverterBoolean.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_is_null(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_is_null(
+        it,
+        _status)
 }
     }
     )
@@ -4155,10 +4003,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
 
     override fun `isObject`(): kotlin.Boolean {
             return FfiConverterBoolean.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_is_object(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_is_object(
+        it,
+        _status)
 }
     }
     )
@@ -4167,10 +4016,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
 
     override fun `isString`(): kotlin.Boolean {
             return FfiConverterBoolean.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_is_string(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_is_string(
+        it,
+        _status)
 }
     }
     )
@@ -4179,10 +4029,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
 
     override fun `isStringArray`(): kotlin.Boolean {
             return FfiConverterBoolean.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_is_string_array(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_is_string_array(
+        it,
+        _status)
 }
     }
     )
@@ -4191,10 +4042,11 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
 
     override fun `isU64`(): kotlin.Boolean {
             return FfiConverterBoolean.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_didmethodparameter_is_u64(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_didmethodparameter_is_u64(
+        it,
+        _status)
 }
     }
     )
@@ -4204,55 +4056,54 @@ open class DidMethodParameter: Disposable, AutoCloseable, DidMethodParameterInte
     
 
     
+
+
     
+    
+    /**
+     * @suppress
+     */
     companion object
     
 }
 
+
 /**
  * @suppress
  */
-public object FfiConverterTypeDidMethodParameter: FfiConverter<DidMethodParameter, Pointer> {
-
-    override fun lower(value: DidMethodParameter): Pointer {
-        return value.uniffiClonePointer()
+public object FfiConverterTypeDidMethodParameter: FfiConverter<DidMethodParameter, Long> {
+    override fun lower(value: DidMethodParameter): Long {
+        return value.uniffiCloneHandle()
     }
 
-    override fun lift(value: Pointer): DidMethodParameter {
-        return DidMethodParameter(value)
+    override fun lift(value: Long): DidMethodParameter {
+        return DidMethodParameter(UniffiWithHandle, value)
     }
 
     override fun read(buf: ByteBuffer): DidMethodParameter {
-        // The Rust code always writes pointers as 8 bytes, and will
-        // fail to compile if they don't fit.
-        return lift(Pointer(buf.getLong()))
+        return lift(buf.getLong())
     }
 
     override fun allocationSize(value: DidMethodParameter) = 8UL
 
     override fun write(value: DidMethodParameter, buf: ByteBuffer) {
-        // The Rust code always expects pointers written as 8 bytes,
-        // and will fail to compile if they don't fit.
-        buf.putLong(Pointer.nativeValue(lower(value)))
+        buf.putLong(lower(value))
     }
 }
 
 
-// This template implements a class for working with a Rust struct via a Pointer/Arc<T>
+// This template implements a class for working with a Rust struct via a handle
 // to the live Rust struct on the other side of the FFI.
-//
-// Each instance implements core operations for working with the Rust `Arc<T>` and the
-// Kotlin Pointer to work with the live Rust struct on the other side of the FFI.
 //
 // There's some subtlety here, because we have to be careful not to operate on a Rust
 // struct after it has been dropped, and because we must expose a public API for freeing
 // theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
 //
-//   * Each instance holds an opaque pointer to the underlying Rust struct.
-//     Method calls need to read this pointer from the object's state and pass it in to
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
 //     the Rust FFI.
 //
-//   * When an instance is no longer needed, its pointer should be passed to a
+//   * When an instance is no longer needed, its handle should be passed to a
 //     special destructor function provided by the Rust FFI, which will drop the
 //     underlying Rust struct.
 //
@@ -4277,13 +4128,13 @@ public object FfiConverterTypeDidMethodParameter: FfiConverter<DidMethodParamete
 //      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
 //         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
 //
-// If we try to implement this with mutual exclusion on access to the pointer, there is the
+// If we try to implement this with mutual exclusion on access to the handle, there is the
 // possibility of a race between a method call and a concurrent call to `destroy`:
 //
-//    * Thread A starts a method call, reads the value of the pointer, but is interrupted
-//      before it can pass the pointer over the FFI to Rust.
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
 //    * Thread B calls `destroy` and frees the underlying Rust struct.
-//    * Thread A resumes, passing the already-read pointer value to Rust and triggering
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
 //      a use-after-free.
 //
 // One possible solution would be to use a `ReadWriteLock`, with each method call taking
@@ -4369,24 +4220,30 @@ public interface Ed25519SignatureInterface {
 open class Ed25519Signature: Disposable, AutoCloseable, Ed25519SignatureInterface
 {
 
-    constructor(pointer: Pointer) {
-        this.pointer = pointer
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
     }
 
     /**
+     * @suppress
+     *
      * This constructor can be used to instantiate a fake object. Only used for tests. Any
      * attempt to actually use an object constructed this way will fail as there is no
      * connected Rust object.
      */
     @Suppress("UNUSED_PARAMETER")
-    constructor(noPointer: NoPointer) {
-        this.pointer = null
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
     }
 
-    protected val pointer: Pointer?
-    protected val cleanable: UniffiCleaner.Cleanable
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
 
     private val wasDestroyed = AtomicBoolean(false)
     private val callCounter = AtomicLong(1)
@@ -4397,7 +4254,7 @@ open class Ed25519Signature: Disposable, AutoCloseable, Ed25519SignatureInterfac
         if (this.wasDestroyed.compareAndSet(false, true)) {
             // This decrement always matches the initial count of 1 given at creation time.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
@@ -4407,7 +4264,7 @@ open class Ed25519Signature: Disposable, AutoCloseable, Ed25519SignatureInterfac
         this.destroy()
     }
 
-    internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
         do {
@@ -4419,32 +4276,40 @@ open class Ed25519Signature: Disposable, AutoCloseable, Ed25519SignatureInterfac
                 throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
             }
         } while (! this.callCounter.compareAndSet(c, c + 1L))
-        // Now we can safely do the method call without the pointer being freed concurrently.
+        // Now we can safely do the method call without the handle being freed concurrently.
         try {
-            return block(this.uniffiClonePointer())
+            return block(this.uniffiCloneHandle())
         } finally {
             // This decrement always matches the increment we performed above.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
 
     // Use a static inner class instead of a closure so as not to accidentally
     // capture `this` as part of the cleanable's action.
-    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
         override fun run() {
-            pointer?.let { ptr ->
-                uniffiRustCall { status ->
-                    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_free_ed25519signature(ptr, status)
-                }
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_did_sidekicks_fn_free_ed25519signature(handle, status)
             }
         }
     }
 
-    fun uniffiClonePointer(): Pointer {
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
         return uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_clone_ed25519signature(pointer!!, status)
+            UniffiLib.uniffi_did_sidekicks_fn_clone_ed25519signature(handle, status)
         }
     }
 
@@ -4454,10 +4319,11 @@ open class Ed25519Signature: Disposable, AutoCloseable, Ed25519SignatureInterfac
      * Lower case letters are used (e.g. f9b4ca)
      */override fun `toHex`(): kotlin.String {
             return FfiConverterString.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_ed25519signature_to_hex(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_ed25519signature_to_hex(
+        it,
+        _status)
 }
     }
     )
@@ -4469,10 +4335,11 @@ open class Ed25519Signature: Disposable, AutoCloseable, Ed25519SignatureInterfac
      * The multibase-encoding method.
      */override fun `toMultibase`(): kotlin.String {
             return FfiConverterString.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_ed25519signature_to_multibase(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_ed25519signature_to_multibase(
+        it,
+        _status)
 }
     }
     )
@@ -4480,6 +4347,9 @@ open class Ed25519Signature: Disposable, AutoCloseable, Ed25519SignatureInterfac
     
 
     
+
+    
+
 
     
     companion object {
@@ -4496,7 +4366,8 @@ open class Ed25519Signature: Disposable, AutoCloseable, Ed25519SignatureInterfac
     @Throws(DidSidekicksException::class) fun `fromHex`(`hexEncoded`: kotlin.String): Ed25519Signature {
             return FfiConverterTypeEd25519Signature.lift(
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_constructor_ed25519signature_from_hex(
+    UniffiLib.uniffi_did_sidekicks_fn_constructor_ed25519signature_from_hex(
+    
         FfiConverterString.lower(`hexEncoded`),_status)
 }
     )
@@ -4513,7 +4384,8 @@ open class Ed25519Signature: Disposable, AutoCloseable, Ed25519SignatureInterfac
     @Throws(DidSidekicksException::class) fun `fromMultibase`(`multibase`: kotlin.String): Ed25519Signature {
             return FfiConverterTypeEd25519Signature.lift(
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_constructor_ed25519signature_from_multibase(
+    UniffiLib.uniffi_did_sidekicks_fn_constructor_ed25519signature_from_multibase(
+    
         FfiConverterString.lower(`multibase`),_status)
 }
     )
@@ -4525,50 +4397,43 @@ open class Ed25519Signature: Disposable, AutoCloseable, Ed25519SignatureInterfac
     
 }
 
+
 /**
  * @suppress
  */
-public object FfiConverterTypeEd25519Signature: FfiConverter<Ed25519Signature, Pointer> {
-
-    override fun lower(value: Ed25519Signature): Pointer {
-        return value.uniffiClonePointer()
+public object FfiConverterTypeEd25519Signature: FfiConverter<Ed25519Signature, Long> {
+    override fun lower(value: Ed25519Signature): Long {
+        return value.uniffiCloneHandle()
     }
 
-    override fun lift(value: Pointer): Ed25519Signature {
-        return Ed25519Signature(value)
+    override fun lift(value: Long): Ed25519Signature {
+        return Ed25519Signature(UniffiWithHandle, value)
     }
 
     override fun read(buf: ByteBuffer): Ed25519Signature {
-        // The Rust code always writes pointers as 8 bytes, and will
-        // fail to compile if they don't fit.
-        return lift(Pointer(buf.getLong()))
+        return lift(buf.getLong())
     }
 
     override fun allocationSize(value: Ed25519Signature) = 8UL
 
     override fun write(value: Ed25519Signature, buf: ByteBuffer) {
-        // The Rust code always expects pointers written as 8 bytes,
-        // and will fail to compile if they don't fit.
-        buf.putLong(Pointer.nativeValue(lower(value)))
+        buf.putLong(lower(value))
     }
 }
 
 
-// This template implements a class for working with a Rust struct via a Pointer/Arc<T>
+// This template implements a class for working with a Rust struct via a handle
 // to the live Rust struct on the other side of the FFI.
-//
-// Each instance implements core operations for working with the Rust `Arc<T>` and the
-// Kotlin Pointer to work with the live Rust struct on the other side of the FFI.
 //
 // There's some subtlety here, because we have to be careful not to operate on a Rust
 // struct after it has been dropped, and because we must expose a public API for freeing
 // theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
 //
-//   * Each instance holds an opaque pointer to the underlying Rust struct.
-//     Method calls need to read this pointer from the object's state and pass it in to
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
 //     the Rust FFI.
 //
-//   * When an instance is no longer needed, its pointer should be passed to a
+//   * When an instance is no longer needed, its handle should be passed to a
 //     special destructor function provided by the Rust FFI, which will drop the
 //     underlying Rust struct.
 //
@@ -4593,13 +4458,13 @@ public object FfiConverterTypeEd25519Signature: FfiConverter<Ed25519Signature, P
 //      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
 //         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
 //
-// If we try to implement this with mutual exclusion on access to the pointer, there is the
+// If we try to implement this with mutual exclusion on access to the handle, there is the
 // possibility of a race between a method call and a concurrent call to `destroy`:
 //
-//    * Thread A starts a method call, reads the value of the pointer, but is interrupted
-//      before it can pass the pointer over the FFI to Rust.
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
 //    * Thread B calls `destroy` and frees the underlying Rust struct.
-//    * Thread A resumes, passing the already-read pointer value to Rust and triggering
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
 //      a use-after-free.
 //
 // One possible solution would be to use a `ReadWriteLock`, with each method call taking
@@ -4707,24 +4572,30 @@ public interface Ed25519SigningKeyInterface {
 open class Ed25519SigningKey: Disposable, AutoCloseable, Ed25519SigningKeyInterface
 {
 
-    constructor(pointer: Pointer) {
-        this.pointer = pointer
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
     }
 
     /**
+     * @suppress
+     *
      * This constructor can be used to instantiate a fake object. Only used for tests. Any
      * attempt to actually use an object constructed this way will fail as there is no
      * connected Rust object.
      */
     @Suppress("UNUSED_PARAMETER")
-    constructor(noPointer: NoPointer) {
-        this.pointer = null
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
     }
 
-    protected val pointer: Pointer?
-    protected val cleanable: UniffiCleaner.Cleanable
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
 
     private val wasDestroyed = AtomicBoolean(false)
     private val callCounter = AtomicLong(1)
@@ -4735,7 +4606,7 @@ open class Ed25519SigningKey: Disposable, AutoCloseable, Ed25519SigningKeyInterf
         if (this.wasDestroyed.compareAndSet(false, true)) {
             // This decrement always matches the initial count of 1 given at creation time.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
@@ -4745,7 +4616,7 @@ open class Ed25519SigningKey: Disposable, AutoCloseable, Ed25519SigningKeyInterf
         this.destroy()
     }
 
-    internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
         do {
@@ -4757,32 +4628,40 @@ open class Ed25519SigningKey: Disposable, AutoCloseable, Ed25519SigningKeyInterf
                 throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
             }
         } while (! this.callCounter.compareAndSet(c, c + 1L))
-        // Now we can safely do the method call without the pointer being freed concurrently.
+        // Now we can safely do the method call without the handle being freed concurrently.
         try {
-            return block(this.uniffiClonePointer())
+            return block(this.uniffiCloneHandle())
         } finally {
             // This decrement always matches the increment we performed above.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
 
     // Use a static inner class instead of a closure so as not to accidentally
     // capture `this` as part of the cleanable's action.
-    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
         override fun run() {
-            pointer?.let { ptr ->
-                uniffiRustCall { status ->
-                    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_free_ed25519signingkey(ptr, status)
-                }
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_did_sidekicks_fn_free_ed25519signingkey(handle, status)
             }
         }
     }
 
-    fun uniffiClonePointer(): Pointer {
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
         return uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_clone_ed25519signingkey(pointer!!, status)
+            UniffiLib.uniffi_did_sidekicks_fn_clone_ed25519signingkey(handle, status)
         }
     }
 
@@ -4791,10 +4670,11 @@ open class Ed25519SigningKey: Disposable, AutoCloseable, Ed25519SigningKeyInterf
      * Get the `Ed25519VerifyingKey` for this `Ed25519SigningKey`.
      */override fun `getVerifyingKey`(): Ed25519VerifyingKey {
             return FfiConverterTypeEd25519VerifyingKey.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_ed25519signingkey_get_verifying_key(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_ed25519signingkey_get_verifying_key(
+        it,
+        _status)
 }
     }
     )
@@ -4806,10 +4686,11 @@ open class Ed25519SigningKey: Disposable, AutoCloseable, Ed25519SigningKeyInterf
      * Sign the given message and return a digital signature.
      */override fun `sign`(`message`: kotlin.String): Ed25519Signature {
             return FfiConverterTypeEd25519Signature.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_ed25519signingkey_sign(
-        it, FfiConverterString.lower(`message`),_status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_ed25519signingkey_sign(
+        it,
+        FfiConverterString.lower(`message`),_status)
 }
     }
     )
@@ -4824,10 +4705,11 @@ open class Ed25519SigningKey: Disposable, AutoCloseable, Ed25519SigningKeyInterf
      */
     @Throws(DidSidekicksException::class)override fun `signHex`(`messageHex`: kotlin.String): Ed25519Signature {
             return FfiConverterTypeEd25519Signature.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_ed25519signingkey_sign_hex(
-        it, FfiConverterString.lower(`messageHex`),_status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_ed25519signingkey_sign_hex(
+        it,
+        FfiConverterString.lower(`messageHex`),_status)
 }
     }
     )
@@ -4843,10 +4725,11 @@ open class Ed25519SigningKey: Disposable, AutoCloseable, Ed25519SigningKeyInterf
      * and then prepended with the base-58-btc Multibase header (z).
      */override fun `toMultibase`(): kotlin.String {
             return FfiConverterString.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_ed25519signingkey_to_multibase(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_ed25519signingkey_to_multibase(
+        it,
+        _status)
 }
     }
     )
@@ -4859,16 +4742,20 @@ open class Ed25519SigningKey: Disposable, AutoCloseable, Ed25519SigningKeyInterf
      */
     @Throws(DidSidekicksException::class)override fun `writePkcs8PemFile`(`pkcs8PemFile`: kotlin.String)
         = 
-    callWithPointer {
+    callWithHandle {
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_ed25519signingkey_write_pkcs8_pem_file(
-        it, FfiConverterString.lower(`pkcs8PemFile`),_status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_ed25519signingkey_write_pkcs8_pem_file(
+        it,
+        FfiConverterString.lower(`pkcs8PemFile`),_status)
 }
     }
     
     
 
     
+
+    
+
 
     
     companion object {
@@ -4886,7 +4773,8 @@ open class Ed25519SigningKey: Disposable, AutoCloseable, Ed25519SigningKeyInterf
     @Throws(DidSidekicksException::class) fun `fromMultibase`(`multibase`: kotlin.String): Ed25519SigningKey {
             return FfiConverterTypeEd25519SigningKey.lift(
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_constructor_ed25519signingkey_from_multibase(
+    UniffiLib.uniffi_did_sidekicks_fn_constructor_ed25519signingkey_from_multibase(
+    
         FfiConverterString.lower(`multibase`),_status)
 }
     )
@@ -4900,7 +4788,8 @@ open class Ed25519SigningKey: Disposable, AutoCloseable, Ed25519SigningKeyInterf
     @Throws(DidSidekicksException::class) fun `fromPkcs8Pem`(`pkcs8Pem`: kotlin.String): Ed25519SigningKey {
             return FfiConverterTypeEd25519SigningKey.lift(
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_constructor_ed25519signingkey_from_pkcs8_pem(
+    UniffiLib.uniffi_did_sidekicks_fn_constructor_ed25519signingkey_from_pkcs8_pem(
+    
         FfiConverterString.lower(`pkcs8Pem`),_status)
 }
     )
@@ -4915,7 +4804,8 @@ open class Ed25519SigningKey: Disposable, AutoCloseable, Ed25519SigningKeyInterf
      */ fun `generate`(): Ed25519SigningKey {
             return FfiConverterTypeEd25519SigningKey.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_constructor_ed25519signingkey_generate(
+    UniffiLib.uniffi_did_sidekicks_fn_constructor_ed25519signingkey_generate(
+    
         _status)
 }
     )
@@ -4929,7 +4819,8 @@ open class Ed25519SigningKey: Disposable, AutoCloseable, Ed25519SigningKeyInterf
     @Throws(DidSidekicksException::class) fun `readPkcs8PemFile`(`pkcs8PemFile`: kotlin.String): Ed25519SigningKey {
             return FfiConverterTypeEd25519SigningKey.lift(
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_constructor_ed25519signingkey_read_pkcs8_pem_file(
+    UniffiLib.uniffi_did_sidekicks_fn_constructor_ed25519signingkey_read_pkcs8_pem_file(
+    
         FfiConverterString.lower(`pkcs8PemFile`),_status)
 }
     )
@@ -4941,50 +4832,43 @@ open class Ed25519SigningKey: Disposable, AutoCloseable, Ed25519SigningKeyInterf
     
 }
 
+
 /**
  * @suppress
  */
-public object FfiConverterTypeEd25519SigningKey: FfiConverter<Ed25519SigningKey, Pointer> {
-
-    override fun lower(value: Ed25519SigningKey): Pointer {
-        return value.uniffiClonePointer()
+public object FfiConverterTypeEd25519SigningKey: FfiConverter<Ed25519SigningKey, Long> {
+    override fun lower(value: Ed25519SigningKey): Long {
+        return value.uniffiCloneHandle()
     }
 
-    override fun lift(value: Pointer): Ed25519SigningKey {
-        return Ed25519SigningKey(value)
+    override fun lift(value: Long): Ed25519SigningKey {
+        return Ed25519SigningKey(UniffiWithHandle, value)
     }
 
     override fun read(buf: ByteBuffer): Ed25519SigningKey {
-        // The Rust code always writes pointers as 8 bytes, and will
-        // fail to compile if they don't fit.
-        return lift(Pointer(buf.getLong()))
+        return lift(buf.getLong())
     }
 
     override fun allocationSize(value: Ed25519SigningKey) = 8UL
 
     override fun write(value: Ed25519SigningKey, buf: ByteBuffer) {
-        // The Rust code always expects pointers written as 8 bytes,
-        // and will fail to compile if they don't fit.
-        buf.putLong(Pointer.nativeValue(lower(value)))
+        buf.putLong(lower(value))
     }
 }
 
 
-// This template implements a class for working with a Rust struct via a Pointer/Arc<T>
+// This template implements a class for working with a Rust struct via a handle
 // to the live Rust struct on the other side of the FFI.
-//
-// Each instance implements core operations for working with the Rust `Arc<T>` and the
-// Kotlin Pointer to work with the live Rust struct on the other side of the FFI.
 //
 // There's some subtlety here, because we have to be careful not to operate on a Rust
 // struct after it has been dropped, and because we must expose a public API for freeing
 // theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
 //
-//   * Each instance holds an opaque pointer to the underlying Rust struct.
-//     Method calls need to read this pointer from the object's state and pass it in to
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
 //     the Rust FFI.
 //
-//   * When an instance is no longer needed, its pointer should be passed to a
+//   * When an instance is no longer needed, its handle should be passed to a
 //     special destructor function provided by the Rust FFI, which will drop the
 //     underlying Rust struct.
 //
@@ -5009,13 +4893,13 @@ public object FfiConverterTypeEd25519SigningKey: FfiConverter<Ed25519SigningKey,
 //      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
 //         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
 //
-// If we try to implement this with mutual exclusion on access to the pointer, there is the
+// If we try to implement this with mutual exclusion on access to the handle, there is the
 // possibility of a race between a method call and a concurrent call to `destroy`:
 //
-//    * Thread A starts a method call, reads the value of the pointer, but is interrupted
-//      before it can pass the pointer over the FFI to Rust.
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
 //    * Thread B calls `destroy` and frees the underlying Rust struct.
-//    * Thread A resumes, passing the already-read pointer value to Rust and triggering
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
 //      a use-after-free.
 //
 // One possible solution would be to use a `ReadWriteLock`, with each method call taking
@@ -5111,24 +4995,30 @@ public interface Ed25519VerifyingKeyInterface {
 open class Ed25519VerifyingKey: Disposable, AutoCloseable, Ed25519VerifyingKeyInterface
 {
 
-    constructor(pointer: Pointer) {
-        this.pointer = pointer
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
     }
 
     /**
+     * @suppress
+     *
      * This constructor can be used to instantiate a fake object. Only used for tests. Any
      * attempt to actually use an object constructed this way will fail as there is no
      * connected Rust object.
      */
     @Suppress("UNUSED_PARAMETER")
-    constructor(noPointer: NoPointer) {
-        this.pointer = null
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
     }
 
-    protected val pointer: Pointer?
-    protected val cleanable: UniffiCleaner.Cleanable
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
 
     private val wasDestroyed = AtomicBoolean(false)
     private val callCounter = AtomicLong(1)
@@ -5139,7 +5029,7 @@ open class Ed25519VerifyingKey: Disposable, AutoCloseable, Ed25519VerifyingKeyIn
         if (this.wasDestroyed.compareAndSet(false, true)) {
             // This decrement always matches the initial count of 1 given at creation time.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
@@ -5149,7 +5039,7 @@ open class Ed25519VerifyingKey: Disposable, AutoCloseable, Ed25519VerifyingKeyIn
         this.destroy()
     }
 
-    internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
         do {
@@ -5161,32 +5051,40 @@ open class Ed25519VerifyingKey: Disposable, AutoCloseable, Ed25519VerifyingKeyIn
                 throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
             }
         } while (! this.callCounter.compareAndSet(c, c + 1L))
-        // Now we can safely do the method call without the pointer being freed concurrently.
+        // Now we can safely do the method call without the handle being freed concurrently.
         try {
-            return block(this.uniffiClonePointer())
+            return block(this.uniffiCloneHandle())
         } finally {
             // This decrement always matches the increment we performed above.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
 
     // Use a static inner class instead of a closure so as not to accidentally
     // capture `this` as part of the cleanable's action.
-    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
         override fun run() {
-            pointer?.let { ptr ->
-                uniffiRustCall { status ->
-                    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_free_ed25519verifyingkey(ptr, status)
-                }
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_did_sidekicks_fn_free_ed25519verifyingkey(handle, status)
             }
         }
     }
 
-    fun uniffiClonePointer(): Pointer {
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
         return uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_clone_ed25519verifyingkey(pointer!!, status)
+            UniffiLib.uniffi_did_sidekicks_fn_clone_ed25519verifyingkey(handle, status)
         }
     }
 
@@ -5200,10 +5098,11 @@ open class Ed25519VerifyingKey: Disposable, AutoCloseable, Ed25519VerifyingKeyIn
      * and then prepended with the base-58-btc Multibase header (z).
      */override fun `toMultibase`(): kotlin.String {
             return FfiConverterString.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_ed25519verifyingkey_to_multibase(
-        it, _status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_ed25519verifyingkey_to_multibase(
+        it,
+        _status)
 }
     }
     )
@@ -5216,10 +5115,11 @@ open class Ed25519VerifyingKey: Disposable, AutoCloseable, Ed25519VerifyingKeyIn
      */
     @Throws(DidSidekicksException::class)override fun `verifyStrict`(`message`: kotlin.String, `signature`: Ed25519Signature)
         = 
-    callWithPointer {
+    callWithHandle {
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_ed25519verifyingkey_verify_strict(
-        it, FfiConverterString.lower(`message`),FfiConverterTypeEd25519Signature.lower(`signature`),_status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_ed25519verifyingkey_verify_strict(
+        it,
+        FfiConverterString.lower(`message`),FfiConverterTypeEd25519Signature.lower(`signature`),_status)
 }
     }
     
@@ -5231,10 +5131,11 @@ open class Ed25519VerifyingKey: Disposable, AutoCloseable, Ed25519VerifyingKeyIn
      */
     @Throws(DidSidekicksException::class)override fun `verifyStrictFromHex`(`messageHex`: kotlin.String, `signature`: Ed25519Signature)
         = 
-    callWithPointer {
+    callWithHandle {
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_ed25519verifyingkey_verify_strict_from_hex(
-        it, FfiConverterString.lower(`messageHex`),FfiConverterTypeEd25519Signature.lower(`signature`),_status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_ed25519verifyingkey_verify_strict_from_hex(
+        it,
+        FfiConverterString.lower(`messageHex`),FfiConverterTypeEd25519Signature.lower(`signature`),_status)
 }
     }
     
@@ -5246,16 +5147,20 @@ open class Ed25519VerifyingKey: Disposable, AutoCloseable, Ed25519VerifyingKeyIn
      */
     @Throws(DidSidekicksException::class)override fun `writePublicKeyPemFile`(`publicKeyPemFile`: kotlin.String)
         = 
-    callWithPointer {
+    callWithHandle {
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_ed25519verifyingkey_write_public_key_pem_file(
-        it, FfiConverterString.lower(`publicKeyPemFile`),_status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_ed25519verifyingkey_write_public_key_pem_file(
+        it,
+        FfiConverterString.lower(`publicKeyPemFile`),_status)
 }
     }
     
     
 
     
+
+    
+
 
     
     companion object {
@@ -5274,7 +5179,8 @@ open class Ed25519VerifyingKey: Disposable, AutoCloseable, Ed25519VerifyingKeyIn
     @Throws(DidSidekicksException::class) fun `fromMultibase`(`multibase`: kotlin.String): Ed25519VerifyingKey {
             return FfiConverterTypeEd25519VerifyingKey.lift(
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_constructor_ed25519verifyingkey_from_multibase(
+    UniffiLib.uniffi_did_sidekicks_fn_constructor_ed25519verifyingkey_from_multibase(
+    
         FfiConverterString.lower(`multibase`),_status)
 }
     )
@@ -5288,7 +5194,8 @@ open class Ed25519VerifyingKey: Disposable, AutoCloseable, Ed25519VerifyingKeyIn
     @Throws(DidSidekicksException::class) fun `fromPublicKeyPem`(`publicKeyPem`: kotlin.String): Ed25519VerifyingKey {
             return FfiConverterTypeEd25519VerifyingKey.lift(
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_constructor_ed25519verifyingkey_from_public_key_pem(
+    UniffiLib.uniffi_did_sidekicks_fn_constructor_ed25519verifyingkey_from_public_key_pem(
+    
         FfiConverterString.lower(`publicKeyPem`),_status)
 }
     )
@@ -5302,7 +5209,8 @@ open class Ed25519VerifyingKey: Disposable, AutoCloseable, Ed25519VerifyingKeyIn
     @Throws(DidSidekicksException::class) fun `readPublicKeyPemFile`(`publicKeyPemFile`: kotlin.String): Ed25519VerifyingKey {
             return FfiConverterTypeEd25519VerifyingKey.lift(
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_constructor_ed25519verifyingkey_read_public_key_pem_file(
+    UniffiLib.uniffi_did_sidekicks_fn_constructor_ed25519verifyingkey_read_public_key_pem_file(
+    
         FfiConverterString.lower(`publicKeyPemFile`),_status)
 }
     )
@@ -5314,50 +5222,43 @@ open class Ed25519VerifyingKey: Disposable, AutoCloseable, Ed25519VerifyingKeyIn
     
 }
 
+
 /**
  * @suppress
  */
-public object FfiConverterTypeEd25519VerifyingKey: FfiConverter<Ed25519VerifyingKey, Pointer> {
-
-    override fun lower(value: Ed25519VerifyingKey): Pointer {
-        return value.uniffiClonePointer()
+public object FfiConverterTypeEd25519VerifyingKey: FfiConverter<Ed25519VerifyingKey, Long> {
+    override fun lower(value: Ed25519VerifyingKey): Long {
+        return value.uniffiCloneHandle()
     }
 
-    override fun lift(value: Pointer): Ed25519VerifyingKey {
-        return Ed25519VerifyingKey(value)
+    override fun lift(value: Long): Ed25519VerifyingKey {
+        return Ed25519VerifyingKey(UniffiWithHandle, value)
     }
 
     override fun read(buf: ByteBuffer): Ed25519VerifyingKey {
-        // The Rust code always writes pointers as 8 bytes, and will
-        // fail to compile if they don't fit.
-        return lift(Pointer(buf.getLong()))
+        return lift(buf.getLong())
     }
 
     override fun allocationSize(value: Ed25519VerifyingKey) = 8UL
 
     override fun write(value: Ed25519VerifyingKey, buf: ByteBuffer) {
-        // The Rust code always expects pointers written as 8 bytes,
-        // and will fail to compile if they don't fit.
-        buf.putLong(Pointer.nativeValue(lower(value)))
+        buf.putLong(lower(value))
     }
 }
 
 
-// This template implements a class for working with a Rust struct via a Pointer/Arc<T>
+// This template implements a class for working with a Rust struct via a handle
 // to the live Rust struct on the other side of the FFI.
-//
-// Each instance implements core operations for working with the Rust `Arc<T>` and the
-// Kotlin Pointer to work with the live Rust struct on the other side of the FFI.
 //
 // There's some subtlety here, because we have to be careful not to operate on a Rust
 // struct after it has been dropped, and because we must expose a public API for freeing
 // theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
 //
-//   * Each instance holds an opaque pointer to the underlying Rust struct.
-//     Method calls need to read this pointer from the object's state and pass it in to
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
 //     the Rust FFI.
 //
-//   * When an instance is no longer needed, its pointer should be passed to a
+//   * When an instance is no longer needed, its handle should be passed to a
 //     special destructor function provided by the Rust FFI, which will drop the
 //     underlying Rust struct.
 //
@@ -5382,13 +5283,13 @@ public object FfiConverterTypeEd25519VerifyingKey: FfiConverter<Ed25519Verifying
 //      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
 //         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
 //
-// If we try to implement this with mutual exclusion on access to the pointer, there is the
+// If we try to implement this with mutual exclusion on access to the handle, there is the
 // possibility of a race between a method call and a concurrent call to `destroy`:
 //
-//    * Thread A starts a method call, reads the value of the pointer, but is interrupted
-//      before it can pass the pointer over the FFI to Rust.
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
 //    * Thread B calls `destroy` and frees the underlying Rust struct.
-//    * Thread A resumes, passing the already-read pointer value to Rust and triggering
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
 //      a use-after-free.
 //
 // One possible solution would be to use a `ReadWriteLock`, with each method call taking
@@ -5481,24 +5382,30 @@ public interface EddsaJcs2022CryptosuiteInterface {
 open class EddsaJcs2022Cryptosuite: Disposable, AutoCloseable, EddsaJcs2022CryptosuiteInterface
 {
 
-    constructor(pointer: Pointer) {
-        this.pointer = pointer
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
     }
 
     /**
+     * @suppress
+     *
      * This constructor can be used to instantiate a fake object. Only used for tests. Any
      * attempt to actually use an object constructed this way will fail as there is no
      * connected Rust object.
      */
     @Suppress("UNUSED_PARAMETER")
-    constructor(noPointer: NoPointer) {
-        this.pointer = null
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
     }
 
-    protected val pointer: Pointer?
-    protected val cleanable: UniffiCleaner.Cleanable
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
 
     private val wasDestroyed = AtomicBoolean(false)
     private val callCounter = AtomicLong(1)
@@ -5509,7 +5416,7 @@ open class EddsaJcs2022Cryptosuite: Disposable, AutoCloseable, EddsaJcs2022Crypt
         if (this.wasDestroyed.compareAndSet(false, true)) {
             // This decrement always matches the initial count of 1 given at creation time.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
@@ -5519,7 +5426,7 @@ open class EddsaJcs2022Cryptosuite: Disposable, AutoCloseable, EddsaJcs2022Crypt
         this.destroy()
     }
 
-    internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
         do {
@@ -5531,32 +5438,40 @@ open class EddsaJcs2022Cryptosuite: Disposable, AutoCloseable, EddsaJcs2022Crypt
                 throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
             }
         } while (! this.callCounter.compareAndSet(c, c + 1L))
-        // Now we can safely do the method call without the pointer being freed concurrently.
+        // Now we can safely do the method call without the handle being freed concurrently.
         try {
-            return block(this.uniffiClonePointer())
+            return block(this.uniffiCloneHandle())
         } finally {
             // This decrement always matches the increment we performed above.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
 
     // Use a static inner class instead of a closure so as not to accidentally
     // capture `this` as part of the cleanable's action.
-    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
         override fun run() {
-            pointer?.let { ptr ->
-                uniffiRustCall { status ->
-                    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_free_eddsajcs2022cryptosuite(ptr, status)
-                }
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_did_sidekicks_fn_free_eddsajcs2022cryptosuite(handle, status)
             }
         }
     }
 
-    fun uniffiClonePointer(): Pointer {
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
         return uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_clone_eddsajcs2022cryptosuite(pointer!!, status)
+            UniffiLib.uniffi_did_sidekicks_fn_clone_eddsajcs2022cryptosuite(handle, status)
         }
     }
 
@@ -5572,10 +5487,11 @@ open class EddsaJcs2022Cryptosuite: Disposable, AutoCloseable, EddsaJcs2022Crypt
      */
     @Throws(DidSidekicksException::class)override fun `addProof`(`unsecuredDocument`: kotlin.String, `options`: CryptoSuiteProofOptions): kotlin.String {
             return FfiConverterString.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_eddsajcs2022cryptosuite_add_proof(
-        it, FfiConverterString.lower(`unsecuredDocument`),FfiConverterTypeCryptoSuiteProofOptions.lower(`options`),_status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_eddsajcs2022cryptosuite_add_proof(
+        it,
+        FfiConverterString.lower(`unsecuredDocument`),FfiConverterTypeCryptoSuiteProofOptions.lower(`options`),_status)
 }
     }
     )
@@ -5592,16 +5508,20 @@ open class EddsaJcs2022Cryptosuite: Disposable, AutoCloseable, EddsaJcs2022Crypt
      */
     @Throws(DidSidekicksException::class)override fun `verifyProof`(`proof`: DataIntegrityProof, `docHash`: kotlin.String)
         = 
-    callWithPointer {
+    callWithHandle {
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_eddsajcs2022cryptosuite_verify_proof(
-        it, FfiConverterTypeDataIntegrityProof.lower(`proof`),FfiConverterString.lower(`docHash`),_status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_eddsajcs2022cryptosuite_verify_proof(
+        it,
+        FfiConverterTypeDataIntegrityProof.lower(`proof`),FfiConverterString.lower(`docHash`),_status)
 }
     }
     
     
 
     
+
+    
+
 
     
     companion object {
@@ -5611,7 +5531,8 @@ open class EddsaJcs2022Cryptosuite: Disposable, AutoCloseable, EddsaJcs2022Crypt
      */ fun `fromSigningKey`(`signingKey`: Ed25519SigningKey): EddsaJcs2022Cryptosuite {
             return FfiConverterTypeEddsaJcs2022Cryptosuite.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_constructor_eddsajcs2022cryptosuite_from_signing_key(
+    UniffiLib.uniffi_did_sidekicks_fn_constructor_eddsajcs2022cryptosuite_from_signing_key(
+    
         FfiConverterTypeEd25519SigningKey.lower(`signingKey`),_status)
 }
     )
@@ -5624,7 +5545,8 @@ open class EddsaJcs2022Cryptosuite: Disposable, AutoCloseable, EddsaJcs2022Crypt
      */ fun `fromVerifyingKey`(`verifyingKey`: Ed25519VerifyingKey): EddsaJcs2022Cryptosuite {
             return FfiConverterTypeEddsaJcs2022Cryptosuite.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_constructor_eddsajcs2022cryptosuite_from_verifying_key(
+    UniffiLib.uniffi_did_sidekicks_fn_constructor_eddsajcs2022cryptosuite_from_verifying_key(
+    
         FfiConverterTypeEd25519VerifyingKey.lower(`verifyingKey`),_status)
 }
     )
@@ -5636,50 +5558,43 @@ open class EddsaJcs2022Cryptosuite: Disposable, AutoCloseable, EddsaJcs2022Crypt
     
 }
 
+
 /**
  * @suppress
  */
-public object FfiConverterTypeEddsaJcs2022Cryptosuite: FfiConverter<EddsaJcs2022Cryptosuite, Pointer> {
-
-    override fun lower(value: EddsaJcs2022Cryptosuite): Pointer {
-        return value.uniffiClonePointer()
+public object FfiConverterTypeEddsaJcs2022Cryptosuite: FfiConverter<EddsaJcs2022Cryptosuite, Long> {
+    override fun lower(value: EddsaJcs2022Cryptosuite): Long {
+        return value.uniffiCloneHandle()
     }
 
-    override fun lift(value: Pointer): EddsaJcs2022Cryptosuite {
-        return EddsaJcs2022Cryptosuite(value)
+    override fun lift(value: Long): EddsaJcs2022Cryptosuite {
+        return EddsaJcs2022Cryptosuite(UniffiWithHandle, value)
     }
 
     override fun read(buf: ByteBuffer): EddsaJcs2022Cryptosuite {
-        // The Rust code always writes pointers as 8 bytes, and will
-        // fail to compile if they don't fit.
-        return lift(Pointer(buf.getLong()))
+        return lift(buf.getLong())
     }
 
     override fun allocationSize(value: EddsaJcs2022Cryptosuite) = 8UL
 
     override fun write(value: EddsaJcs2022Cryptosuite, buf: ByteBuffer) {
-        // The Rust code always expects pointers written as 8 bytes,
-        // and will fail to compile if they don't fit.
-        buf.putLong(Pointer.nativeValue(lower(value)))
+        buf.putLong(lower(value))
     }
 }
 
 
-// This template implements a class for working with a Rust struct via a Pointer/Arc<T>
+// This template implements a class for working with a Rust struct via a handle
 // to the live Rust struct on the other side of the FFI.
-//
-// Each instance implements core operations for working with the Rust `Arc<T>` and the
-// Kotlin Pointer to work with the live Rust struct on the other side of the FFI.
 //
 // There's some subtlety here, because we have to be careful not to operate on a Rust
 // struct after it has been dropped, and because we must expose a public API for freeing
 // theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
 //
-//   * Each instance holds an opaque pointer to the underlying Rust struct.
-//     Method calls need to read this pointer from the object's state and pass it in to
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
 //     the Rust FFI.
 //
-//   * When an instance is no longer needed, its pointer should be passed to a
+//   * When an instance is no longer needed, its handle should be passed to a
 //     special destructor function provided by the Rust FFI, which will drop the
 //     underlying Rust struct.
 //
@@ -5704,13 +5619,13 @@ public object FfiConverterTypeEddsaJcs2022Cryptosuite: FfiConverter<EddsaJcs2022
 //      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
 //         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
 //
-// If we try to implement this with mutual exclusion on access to the pointer, there is the
+// If we try to implement this with mutual exclusion on access to the handle, there is the
 // possibility of a race between a method call and a concurrent call to `destroy`:
 //
-//    * Thread A starts a method call, reads the value of the pointer, but is interrupted
-//      before it can pass the pointer over the FFI to Rust.
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
 //    * Thread B calls `destroy` and frees the underlying Rust struct.
-//    * Thread A resumes, passing the already-read pointer value to Rust and triggering
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
 //      a use-after-free.
 //
 // One possible solution would be to use a `ReadWriteLock`, with each method call taking
@@ -5797,24 +5712,30 @@ public interface JcsSha256HasherInterface {
 open class JcsSha256Hasher: Disposable, AutoCloseable, JcsSha256HasherInterface
 {
 
-    constructor(pointer: Pointer) {
-        this.pointer = pointer
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
     }
 
     /**
+     * @suppress
+     *
      * This constructor can be used to instantiate a fake object. Only used for tests. Any
      * attempt to actually use an object constructed this way will fail as there is no
      * connected Rust object.
      */
     @Suppress("UNUSED_PARAMETER")
-    constructor(noPointer: NoPointer) {
-        this.pointer = null
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
     }
 
-    protected val pointer: Pointer?
-    protected val cleanable: UniffiCleaner.Cleanable
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
 
     private val wasDestroyed = AtomicBoolean(false)
     private val callCounter = AtomicLong(1)
@@ -5825,7 +5746,7 @@ open class JcsSha256Hasher: Disposable, AutoCloseable, JcsSha256HasherInterface
         if (this.wasDestroyed.compareAndSet(false, true)) {
             // This decrement always matches the initial count of 1 given at creation time.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
@@ -5835,7 +5756,7 @@ open class JcsSha256Hasher: Disposable, AutoCloseable, JcsSha256HasherInterface
         this.destroy()
     }
 
-    internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
         do {
@@ -5847,32 +5768,40 @@ open class JcsSha256Hasher: Disposable, AutoCloseable, JcsSha256HasherInterface
                 throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
             }
         } while (! this.callCounter.compareAndSet(c, c + 1L))
-        // Now we can safely do the method call without the pointer being freed concurrently.
+        // Now we can safely do the method call without the handle being freed concurrently.
         try {
-            return block(this.uniffiClonePointer())
+            return block(this.uniffiCloneHandle())
         } finally {
             // This decrement always matches the increment we performed above.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
+                cleanable?.clean()
             }
         }
     }
 
     // Use a static inner class instead of a closure so as not to accidentally
     // capture `this` as part of the cleanable's action.
-    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
         override fun run() {
-            pointer?.let { ptr ->
-                uniffiRustCall { status ->
-                    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_free_jcssha256hasher(ptr, status)
-                }
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_did_sidekicks_fn_free_jcssha256hasher(handle, status)
             }
         }
     }
 
-    fun uniffiClonePointer(): Pointer {
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
         return uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_clone_jcssha256hasher(pointer!!, status)
+            UniffiLib.uniffi_did_sidekicks_fn_clone_jcssha256hasher(handle, status)
         }
     }
 
@@ -5884,10 +5813,11 @@ open class JcsSha256Hasher: Disposable, AutoCloseable, JcsSha256HasherInterface
      */
     @Throws(DidSidekicksException::class)override fun `base58btcEncodeMultihash`(`json`: kotlin.String): kotlin.String {
             return FfiConverterString.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_jcssha256hasher_base58btc_encode_multihash(
-        it, FfiConverterString.lower(`json`),_status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_jcssha256hasher_base58btc_encode_multihash(
+        it,
+        FfiConverterString.lower(`json`),_status)
 }
     }
     )
@@ -5904,10 +5834,11 @@ open class JcsSha256Hasher: Disposable, AutoCloseable, JcsSha256HasherInterface
      */
     @Throws(DidSidekicksException::class)override fun `encodeHex`(`json`: kotlin.String): kotlin.String {
             return FfiConverterString.lift(
-    callWithPointer {
+    callWithHandle {
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_method_jcssha256hasher_encode_hex(
-        it, FfiConverterString.lower(`json`),_status)
+    UniffiLib.uniffi_did_sidekicks_fn_method_jcssha256hasher_encode_hex(
+        it,
+        FfiConverterString.lower(`json`),_status)
 }
     }
     )
@@ -5917,6 +5848,9 @@ open class JcsSha256Hasher: Disposable, AutoCloseable, JcsSha256HasherInterface
     
 
     
+
+
+    
     companion object {
         
     /**
@@ -5924,7 +5858,8 @@ open class JcsSha256Hasher: Disposable, AutoCloseable, JcsSha256HasherInterface
      */ fun `build`(): JcsSha256Hasher {
             return FfiConverterTypeJcsSha256Hasher.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_constructor_jcssha256hasher_build(
+    UniffiLib.uniffi_did_sidekicks_fn_constructor_jcssha256hasher_build(
+    
         _status)
 }
     )
@@ -5936,44 +5871,50 @@ open class JcsSha256Hasher: Disposable, AutoCloseable, JcsSha256HasherInterface
     
 }
 
+
 /**
  * @suppress
  */
-public object FfiConverterTypeJcsSha256Hasher: FfiConverter<JcsSha256Hasher, Pointer> {
-
-    override fun lower(value: JcsSha256Hasher): Pointer {
-        return value.uniffiClonePointer()
+public object FfiConverterTypeJcsSha256Hasher: FfiConverter<JcsSha256Hasher, Long> {
+    override fun lower(value: JcsSha256Hasher): Long {
+        return value.uniffiCloneHandle()
     }
 
-    override fun lift(value: Pointer): JcsSha256Hasher {
-        return JcsSha256Hasher(value)
+    override fun lift(value: Long): JcsSha256Hasher {
+        return JcsSha256Hasher(UniffiWithHandle, value)
     }
 
     override fun read(buf: ByteBuffer): JcsSha256Hasher {
-        // The Rust code always writes pointers as 8 bytes, and will
-        // fail to compile if they don't fit.
-        return lift(Pointer(buf.getLong()))
+        return lift(buf.getLong())
     }
 
     override fun allocationSize(value: JcsSha256Hasher) = 8UL
 
     override fun write(value: JcsSha256Hasher, buf: ByteBuffer) {
-        // The Rust code always expects pointers written as 8 bytes,
-        // and will fail to compile if they don't fit.
-        buf.putLong(Pointer.nativeValue(lower(value)))
+        buf.putLong(lower(value))
     }
 }
 
 
 
 data class Jwk (
-    var `alg`: kotlin.String?, 
-    var `kid`: kotlin.String?, 
-    var `kty`: kotlin.String?, 
-    var `crv`: kotlin.String?, 
-    var `x`: kotlin.String?, 
+    var `alg`: kotlin.String?
+    , 
+    var `kid`: kotlin.String?
+    , 
+    var `kty`: kotlin.String?
+    , 
+    var `crv`: kotlin.String?
+    , 
+    var `x`: kotlin.String?
+    , 
     var `y`: kotlin.String?
-) {
+    
+){
+    
+
+    
+
     
     companion object
 }
@@ -6015,12 +5956,21 @@ public object FfiConverterTypeJwk: FfiConverterRustBuffer<Jwk> {
 
 
 data class VerificationMethod (
-    var `id`: kotlin.String, 
-    var `controller`: kotlin.String, 
-    var `verificationType`: VerificationType, 
-    var `publicKeyMultibase`: kotlin.String?, 
+    var `id`: kotlin.String
+    , 
+    var `controller`: kotlin.String
+    , 
+    var `verificationType`: VerificationType
+    , 
+    var `publicKeyMultibase`: kotlin.String?
+    , 
     var `publicKeyJwk`: Jwk?
-) {
+    
+){
+    
+
+    
+
     
     companion object
 }
@@ -6154,6 +6104,11 @@ sealed class DidResolverException(message: String): kotlin.Exception(message) {
      */
         class InvalidDataIntegrityProof(message: String) : DidResolverException(message)
         
+    /**
+     * Invalid did log
+     */
+        class InvalidDidLog(message: String) : DidResolverException(message)
+        
 
     companion object ErrorHandler : UniffiRustCallStatusErrorHandler<DidResolverException> {
         override fun lift(error_buf: RustBuffer.ByValue): DidResolverException = FfiConverterTypeDidResolverError.lift(error_buf)
@@ -6173,6 +6128,7 @@ public object FfiConverterTypeDidResolverError : FfiConverterRustBuffer<DidResol
             4 -> DidResolverException.InvalidDidParameter(FfiConverterString.read(buf))
             5 -> DidResolverException.InvalidDidDocument(FfiConverterString.read(buf))
             6 -> DidResolverException.InvalidDataIntegrityProof(FfiConverterString.read(buf))
+            7 -> DidResolverException.InvalidDidLog(FfiConverterString.read(buf))
             else -> throw RuntimeException("invalid error enum value, something is very wrong!!")
         }
         
@@ -6206,6 +6162,10 @@ public object FfiConverterTypeDidResolverError : FfiConverterRustBuffer<DidResol
             }
             is DidResolverException.InvalidDataIntegrityProof -> {
                 buf.putInt(6)
+                Unit
+            }
+            is DidResolverException.InvalidDidLog -> {
+                buf.putInt(7)
                 Unit
             }
         }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }
@@ -6419,6 +6379,10 @@ enum class VerificationType {
     MULTIKEY,
     JSON_WEB_KEY2020,
     ED25519_VERIFICATION_KEY2020;
+
+    
+
+
     companion object
 }
 
@@ -6774,7 +6738,8 @@ public object FfiConverterMapStringTypeDidMethodParameter: FfiConverterRustBuffe
     @Throws(DidSidekicksException::class) fun `getKeyFromDidDoc`(`didDoc`: kotlin.String, `keyId`: kotlin.String): Jwk {
             return FfiConverterTypeJwk.lift(
     uniffiRustCallWithError(DidSidekicksException) { _status ->
-    UniffiLib.INSTANCE.uniffi_did_sidekicks_fn_func_get_key_from_did_doc(
+    UniffiLib.uniffi_did_sidekicks_fn_func_get_key_from_did_doc(
+    
         FfiConverterString.lower(`didDoc`),FfiConverterString.lower(`keyId`),_status)
 }
     )
