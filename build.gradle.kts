@@ -1,14 +1,13 @@
 plugins {
-    kotlin("jvm") version "1.9.23"
-    //kotlin("jvm") version "2.3.10"
+    kotlin("jvm") version "2.3.21"
     `maven-publish`
     // see https://gitlab.com/Plunts/plantuml-gradle-plugin
-    id("io.gitlab.plunts.plantuml") version "2.3.0"
+    id("io.gitlab.plunts.plantuml") version "2.4.1"
     // see https://kotlinlang.org/docs/dokka-javadoc.html#generate-javadoc-documentation
-    id("org.jetbrains.dokka-javadoc") version "2.1.0"
+    id("org.jetbrains.dokka-javadoc") version "2.2.0"
     // As suggested by https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-publish-libraries.html
     // see https://vanniktech.github.io/gradle-maven-publish-plugin/
-    id("com.vanniktech.maven.publish") version "0.31.0"
+    id("com.vanniktech.maven.publish") version "0.37.0"
 }
 
 // CAUTION Until 2.0.1 (GitHub packages), the "group" was set to "ch.admin.eid".
@@ -22,43 +21,25 @@ repositories {
 }
 dependencies {
     testImplementation(kotlin("test"))
-    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.23")
-    implementation("net.java.dev.jna:jna:5.17.0")
-    implementation("com.google.code.gson:gson:2.10.1")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.4.10")
+    implementation("net.java.dev.jna:jna:5.19.1")
+    implementation("com.google.code.gson:gson:2.14.0")
 }
 
 kotlin {
     jvmToolchain(21)
 }
 
-// To generate documentation in Javadoc, just run: ./gradlew :dokkaJavadocJar
-val dokkaJavadocJar by tasks.registering(Jar::class) {
-    //description = "A Javadoc JAR containing Dokka Javadoc"
-    from(tasks.dokkaGeneratePublicationJavadoc.flatMap { it.outputDirectory })
-    archiveClassifier.set("javadoc")
-}
-
 // Just run: ./gradlew generateClassDiagrams
 classDiagrams {
     diagram {
-        // this server is the default, so skip this if you don't mind your diagrams being sent there
-        //plantumlServer = null // optional, avoids surprises on configuration errors
-        //renderClasspath = null
-
-        //name("Visualise didresolver Package")
-
         // All properties are also available (and most likely more suited) in the defaults
         // For more information see official PlantUML documentation: https://plantuml.com/en/class-diagram
         style {
-            //include("default_style.puml")
-            //useIntermediatePackages()
-            // see https://the-lum.github.io/puml-themes-gallery/themes/index.html
-            //theme("sketchy")
             hide("empty members")
             show("stereotype")
         }
 
-        //include(packages().withName("ch.admin.eid.didresolver"))
         include(classes().withNameLike("ch.admin.eid.did_sidekicks.DidDoc*").insideOfProject())
         include(classes().withNameLike("ch.admin.eid.did_sidekicks.DidMethod*").insideOfProject())
         include(classes().withNameLike("ch.admin.eid.did_sidekicks.Jwk*").insideOfProject())
@@ -72,61 +53,17 @@ classDiagrams {
         exclude(classes().withNameLike("ch.admin.eid.didresolver.*Uniffi*").insideOfProject())
         exclude(classes().withNameLike("ch.admin.eid.didresolver.*Interface*").insideOfProject())
         exclude(classes().withNameLike("ch.admin.eid.didresolver.*Companion*").insideOfProject())
-        //include(methods().thatArePublic())
-        //exclude(methods().withNameLike("*uniffi*"))
         exclude(interfaces())
         exclude(fields())
         writeTo(file("diagrams/didresolver.puml"))
         renderTo(file("diagrams/didresolver.svg"))
-        //renderTo(file("diagrams/didresolver.png"))
     }
 }
-
-/*
-publishing {
-    publications {
-        register<MavenPublication>("gpr") {
-            groupId = "ch.admin.eid"
-            artifactId = "didresolver"
-            version = "2.6.0"
-            from(components["kotlin"])
-        }
-    }
-    repositories {
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/swiyu-admin-ch/didresolver-kotlin")
-            credentials {
-                // For the GitHub packages, create a personal access token having 'write:packages' scope
-                // and then store it into gradle.properties:
-                // gpr.user=<your_GitHub_user>
-                // gpr.token=****************************************
-                username = project.findProperty("gpr.user") as String? ?: System.getenv("USERNAME")
-                password = project.findProperty("gpr.token") as String? ?: System.getenv("TOKEN")
-            }
-        }
-        maven {
-            name = "BitNexusMavenHostedRepo"
-            url = uri("https://nexus.bit.admin.ch/repository/bj-swiyu-maven-hosted")
-            credentials {
-                // For the BIT Nexus Maven repo, login onto https://nexus.bit.admin.ch with your u808***** account.
-                // Ensure your U-account already have writing grants for the repo (bj-swiyu-maven-hosted).
-                // Create an access user token (visit https://nexus.bit.admin.ch/#user/usertoken)
-                // and then store it into gradle.properties:
-                // nexus.user=********
-                // nexus.token=********************************************
-                username = project.findProperty("nexus.user") as String? ?: System.getenv("NEXUS_USERNAME")
-                password = project.findProperty("nexus.token") as String? ?: System.getenv("NEXUS_TOKEN")
-            }
-        }
-    }
-}
- */
 
 // As suggested by https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-publish-libraries.html
 mavenPublishing {
     // when publishing to https://central.sonatype.com/
-    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+    publishToMavenCentral(automaticRelease = true)
 
     signAllPublications()
 
