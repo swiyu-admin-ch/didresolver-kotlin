@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "2.3.21"
+    kotlin("jvm") version "2.4.20"
     `maven-publish`
     // see https://gitlab.com/Plunts/plantuml-gradle-plugin
     id("io.gitlab.plunts.plantuml") version "2.4.1"
