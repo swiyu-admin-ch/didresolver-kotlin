@@ -21,7 +21,7 @@ repositories {
 }
 dependencies {
     testImplementation(kotlin("test"))
-    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.4.10")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.4.20")
     implementation("net.java.dev.jna:jna:5.19.1")
     implementation("com.google.code.gson:gson:2.14.0")
 }
