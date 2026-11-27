@@ -6137,6 +6137,14 @@ data class Jwk (
     var `keyUse`: kotlin.String?
     , 
     var `keyOps`: List<kotlin.String>?
+    , 
+    var `x5u`: kotlin.String?
+    , 
+    var `x5c`: List<kotlin.String>?
+    , 
+    var `x5t`: kotlin.String?
+    , 
+    var `x5tS256`: kotlin.String?
     
 ){
     
@@ -6161,6 +6169,10 @@ public object FfiConverterTypeJwk: FfiConverterRustBuffer<Jwk> {
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalSequenceString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalSequenceString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
         )
     }
 
@@ -6172,7 +6184,11 @@ public object FfiConverterTypeJwk: FfiConverterRustBuffer<Jwk> {
             FfiConverterOptionalString.allocationSize(value.`x`) +
             FfiConverterOptionalString.allocationSize(value.`y`) +
             FfiConverterOptionalString.allocationSize(value.`keyUse`) +
-            FfiConverterOptionalSequenceString.allocationSize(value.`keyOps`)
+            FfiConverterOptionalSequenceString.allocationSize(value.`keyOps`) +
+            FfiConverterOptionalString.allocationSize(value.`x5u`) +
+            FfiConverterOptionalSequenceString.allocationSize(value.`x5c`) +
+            FfiConverterOptionalString.allocationSize(value.`x5t`) +
+            FfiConverterOptionalString.allocationSize(value.`x5tS256`)
     )
 
     override fun write(value: Jwk, buf: ByteBuffer) {
@@ -6184,6 +6200,10 @@ public object FfiConverterTypeJwk: FfiConverterRustBuffer<Jwk> {
             FfiConverterOptionalString.write(value.`y`, buf)
             FfiConverterOptionalString.write(value.`keyUse`, buf)
             FfiConverterOptionalSequenceString.write(value.`keyOps`, buf)
+            FfiConverterOptionalString.write(value.`x5u`, buf)
+            FfiConverterOptionalSequenceString.write(value.`x5c`, buf)
+            FfiConverterOptionalString.write(value.`x5t`, buf)
+            FfiConverterOptionalString.write(value.`x5tS256`, buf)
     }
 }
 
